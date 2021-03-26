@@ -1,4 +1,6 @@
+from tqdm import tqdm
 from PIL import Image
+import pandas as pd
 import numpy as np
 import random
 import torch
@@ -8,12 +10,13 @@ from kornia import augmentation as KA
 
 
 class DS(Dataset):
-    def __init__(self, imgs_path, img_size, samples, swp=None, train=False):
+    def __init__(self, imgs_path, img_size, df, swp=None, max_len=256, train=False):
         self.imgs_path = imgs_path
         self.img_size = img_size
-        self.samples = samples
+        self.max_len = max_len
         self.train = train
         self.swp = swp
+        self.df = df
 
         # Augment
         self.rotate_tfms = KA.RandomAffine(7., p=1.)
@@ -25,7 +28,7 @@ class DS(Dataset):
         return len(self.samples)
 
     def __getitem__(self, i):
-        image_id, bpe_ids = self.samples[i]
+        image_id, inchi_str = self.df.iloc[i]
         # "Real" data
         c1,c2,c3 = image_id[:3]
         img_path = self.imgs_path/c1/c2/c3/(image_id+'.png')
@@ -83,10 +86,9 @@ class DS(Dataset):
         img_tensor = (img_tensor - 0.0044) / 0.0327
 
         # Augment
-        if self.train:
-            bpe_ids_tmp = [1]+self.swp.encode(self.swp.decode(bpe_ids),enable_sampling=True,alpha=0.03)+[2]
-            if len(bpe_ids_tmp)-1 < self.max_len:
-                bpe_ids = bpe_ids_tmp
+        inchi_str = inchi_str[10:]
+        bpe_ids = [1]+self.swp.encode(inchi_str,enable_sampling=self.train,alpha=0.1)+[2]
+        bpe_ids = bpe_ids if len(bpe_ids)-1 < self.max_len else [1]+self.swp.encode(inchi_str)+[2]
         bpe_len = len(bpe_ids)
         bpe_tensor = torch.zeros(self.max_len, dtype=torch.long)
         bpe_tensor[:bpe_len] = torch.tensor(bpe_ids, dtype=torch.long)
@@ -104,10 +106,11 @@ class DS(Dataset):
 
     def build_new_split(self, bs, randomize=False, drop_last=False):
         # Sort
-        self.samples = sorted(self.samples, key=lambda x: (len(x[1])-1)*(1+randomize*(random.random()*0.4-0.2)))
-        self.max_len = max(len(sample[1]) for sample in self.samples)
+        tqdm.pandas()
+        samples = self.df.progress_apply(lambda x: [1]+self.swp.encode(x[1])+[2], axis=1)
+        samples = sorted(samples, key=lambda x: (len(x)-1)*(1+randomize*(random.random()*0.4-0.2)))
         # Construct batches
-        self.batches = [list(range(i,min(len(self.samples),i+bs))) for i in range(0,len(self.samples),bs)]
+        self.batches = [list(range(i,min(len(samples),i+bs))) for i in range(0,len(samples),bs)]
         if drop_last and len(self.batches[-1])<bs: self.batches = self.batches[:-1]
 
 

@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 import sentencepiece as sp
@@ -30,54 +31,54 @@ def imgs_mixup(imgs_tensor, alpha=0.4):
 
 if __name__ == '__main__':
     #
-    img_size = 384
-    bpe_num = 2**15
-    lr = 1e-3
-    bs = 64
-    BS = 12000
-    epochs_num = 20
-    start_epoch_num = 5
-    ls, ls_down_epoch_num = 0.1, 6
-    mixup_epochs, alpha = [5,6,7], 0.4
+    img_size = 192
+    bpe_num = 4096
+    max_len = 256
+    lr = 3e-4
+    bs = 128
+    BS = None
+    epochs_num = 24
+    start_epoch_num = 0
+    ls, ls_down_epoch_num = 0.00, 1
+    mixup_epochs, alpha = [], 0.4
     #
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     torch.backends.cudnn.benchmark = True
 
     # Dataset
     ds_path = Path('/media/nofreewill/Datasets_nvme/kaggle/bms-data/').absolute()
-    #imgs_path = ds_path/'images/resized'/str(img_size)/'train'
-    imgs_path = ds_path / 'images/train'
-    train_samples_path = ds_path/'samples/train_samples.pkl'
-    valid_samples_path = ds_path/'samples/valid_samples.pkl'
-    train_samples = pickle.load(train_samples_path.open('rb'))
-    valid_samples = pickle.load(valid_samples_path.open('rb'))
+    imgs_path = ds_path/'images/resized'/str(img_size)/'train'
+    imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/train'
+    df = pd.read_csv(ds_path/'train_labels.csv')
+    is_valid = np.array([i%50==0 for i in range(len(df))])
+    train_df = df.iloc[~is_valid]
+    valid_df = df.iloc[is_valid]
 
     sp.SentencePieceProcessor()
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
     swp = sp.SentencePieceProcessor(str(subwords_path))
 
-    trn_ds = DS(imgs_path, img_size, train_samples, swp, train=True)
-    trn_ds.samples = trn_ds.samples
-    val_ds = DS(imgs_path, img_size, valid_samples, train=False)
+    val_ds = DS(imgs_path, img_size, valid_df, swp, train=False)
     val_sampler = SplitterSampler(val_ds, shuffle=False)
-    trn_dl = DataLoader(trn_ds, batch_size=bs, shuffle=True, drop_last=True, pin_memory=True, num_workers=8, prefetch_factor=4)
     val_dl = DataLoader(val_ds, batch_sampler=val_sampler, pin_memory=True, num_workers=8, prefetch_factor=2)
     val_dl.dataset.build_new_split(bs, randomize=False, drop_last=False)
 
-    # TO BE DELETED - START
-    trn_sampler = SplitterSampler(trn_ds, shuffle=True)
-    trn_dl = DataLoader(trn_ds, batch_sampler=trn_sampler, pin_memory=True, num_workers=8, prefetch_factor=2, persistent_workers=False)
-    trn_dl.dataset.build_new_split(bs, randomize=True, drop_last=True)
-    # TO BE DELETED - END
+    trn_ds = DS(imgs_path, img_size, train_df, swp, max_len, train=True)
+    tqdm.pandas()
+    weights = train_df.progress_apply(lambda x: len(x[1])**1, axis=1).to_list()
+    trn_sampler = torch.utils.data.WeightedRandomSampler(weights, len(train_df), replacement=True)
+    trn_dl = DataLoader(trn_ds, batch_size=bs, sampler=trn_sampler,
+                        drop_last=True,
+                        pin_memory=True, num_workers=8, prefetch_factor=4)
 
     # Model
-    N, n = 32, 128
+    N, n = 32, 64
     enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 512, 8, 4*512, 6#24
     dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512, 8, 4*512, 6#12
     model = Model(bpe_num, N, n,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
-                  256).to(device)
+                  max_len).to(device)
 
     # Record
     open_mode = "w" if start_epoch_num==0 else "a"
@@ -85,11 +86,11 @@ if __name__ == '__main__':
     w_val = open('training_stats/valid_stats.csv', open_mode, 1)
 
     # Train params
-    total_steps = epochs_num*len(trn_dl)
+    total_steps = int((epochs_num-len(mixup_epochs)/2)*len(trn_dl))
     loss_fn = LabelSmoothingLoss(ls) if ls>0. else nn.CrossEntropyLoss(reduction='none')
     optimizer = optim.Adam(model.parameters())
     lr_sched = lr_scheduler.OneCycleLR(optimizer,lr,total_steps,
-                                       div_factor=1e3,pct_start=3/epochs_num,final_div_factor=1.)
+                                       div_factor=1e3,pct_start=1/epochs_num,final_div_factor=1.)
     scaler = torch.cuda.amp.GradScaler()
 
     if start_epoch_num>0:
@@ -105,8 +106,10 @@ if __name__ == '__main__':
         if epoch_num>ls_down_epoch_num: loss_fn = nn.CrossEntropyLoss(reduction='none')
         model.train()
         use_mixup = epoch_num in mixup_epochs
-        trn_dl = DataLoader(trn_ds, batch_size=(bs*2 if use_mixup else bs), shuffle=True, drop_last=True,
-                            pin_memory=True, num_workers=8, prefetch_factor=4)
+        if use_mixup:
+            trn_dl = DataLoader(trn_ds, batch_size=(bs*2 if use_mixup else bs),
+                                shuffle=True, drop_last=True,
+                                pin_memory=True, num_workers=8, prefetch_factor=4)
         for i, batch in enumerate(tqdm(trn_dl)):
             imgs_tensor, lbls_tensor, lbls_len = batch
             n = (lbls_len-1).sum().item() //(2 if use_mixup else 1)
@@ -156,11 +159,11 @@ if __name__ == '__main__':
                     loss_fn.smoothing = ls*(1 - (i+1)/len(trn_dl))
 
                 # Record
-                if m%25==0:
+                if m%100==0:
                     loss = loss.item() * (1 if BS is None else BS / n)
                     w_trn.write(f'{i},{loss},{lr_sched.get_last_lr()[0]}\n')
-                if m % 2500 == 0:
-                    torch.save(model.state_dict(), f'model_weights/model_partial.pth')
+                # if m % 2500 == 0:
+                #     torch.save(model.state_dict(), f'model_weights/model_partial.pth')
                 m += 1
 
                 N = 0
