@@ -9,8 +9,8 @@ if __name__ == '__main__':
     samples_dir_path = ds_path/'samples'
     samples_path = samples_dir_path/'samples.pkl'
 
-    valid_num = 50000
-    test_num = 100000
+    valid_num = 20000
+    test_num =  10000
 
     print('Reading samples')
     samples = pickle.load(samples_path.open('rb'))

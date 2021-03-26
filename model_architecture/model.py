@@ -87,6 +87,12 @@ class Model(nn.Module):
         bs = len(imgs_tensor)
 
         with torch.cuda.amp.autocast(enabled=False):
+            # if True:
+            #     conv = nn.Conv2d(1,1,3,1,1, bias=False).to(device)
+            #     conv.weight.data[:]=1/9
+            #     imgs_tensor = imgs_tensor*0.0327+0.0044
+            #     imgs_tensor = imgs_tensor * (conv(imgs_tensor)>1.01/9)
+            #     imgs_tensor = (imgs_tensor - 0.0044) / 0.0327
             imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
 
         src = self.enc_emb(imgs_tensor)

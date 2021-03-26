@@ -14,7 +14,7 @@ if __name__ == '__main__':
     train_labels_path = ds_path/'train_labels.csv'
     train_df = pd.read_csv(train_labels_path)
     # bpe_ids (create it now)
-    bpe_num = 2**15
+    bpe_num = 4096
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
     swp = sp.SentencePieceProcessor(str(subwords_path))
     # INPUT - END
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     sos, eos = swp.bos_id(), swp.eos_id()
     for i in tqdm(range(len(train_df))):
         image_id, inchi_str = train_df.iloc[i]
-        bpe_ids = [sos] + swp.encode(inchi_str[9:]) + [eos]
+        bpe_ids = [sos] + swp.encode(inchi_str[10:]) + [eos]
         sample = [image_id, bpe_ids]
         samples.append(sample)
 
