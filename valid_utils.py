@@ -28,7 +28,7 @@ def validate(model, val_dl, device='cpu'):
 
     return val_loss/N
 
-def levenshtein(model, val_dl, swp, device='cpu', w=None):
+def levenshtein(model, val_dl, swp, device='cpu', w=None, max_pred_len=256):
     model.eval()
     n = 0
     lev_sum = 0
@@ -38,7 +38,7 @@ def levenshtein(model, val_dl, swp, device='cpu', w=None):
         imgs_tensor, lbls_tensor = imgs_tensor.to(device), lbls_tensor.to(device)
 
         with torch.no_grad():
-            lbl_ids, lens = model.predict(imgs_tensor, 114)
+            lbl_ids, lens = model.predict(imgs_tensor, max_pred_len)
             lbl_ids = torch.stack(lbl_ids).T if not isinstance(lbl_ids, torch.Tensor) else lbl_ids
         if (lens==val_dl.dataset.max_len).sum()==len(lens):
             return float('inf')  # it is repeating itself in hole batch, most likely would on all data..

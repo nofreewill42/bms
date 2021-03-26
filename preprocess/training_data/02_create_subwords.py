@@ -5,9 +5,9 @@ import sentencepiece as sp
 if __name__ == '__main__':
     ds_path_str = Path('data_path.txt').read_text()[:-1]
     ds_path = Path(ds_path_str)
-    all_texts_path = ds_path/'all_texts.txt'  # input
-    subwords_dir_path = ds_path/'subwords'    # output directory
-    bpe_num = 2**15                           # "dictionary" size
+    subwords_dir_path = ds_path/'subwords'              # output directory
+    all_texts_path = subwords_dir_path/'all_texts.txt'  # input
+    bpe_num = 4096                                      # "dictionary" size
     subwords_prefix = f'{subwords_dir_path}/bpe_{bpe_num}'  # output
 
     # Do the job
