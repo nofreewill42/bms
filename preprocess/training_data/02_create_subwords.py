@@ -3,7 +3,7 @@ import sentencepiece as sp
 
 
 if __name__ == '__main__':
-    ds_path_str = Path('data_path.txt').read_text()[:-1]
+    ds_path_str = Path('data_path.txt').read_text()
     ds_path = Path(ds_path_str)
     subwords_dir_path = ds_path/'subwords'              # output directory
     all_texts_path = subwords_dir_path/'all_texts.txt'  # input

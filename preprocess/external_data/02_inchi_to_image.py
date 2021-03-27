@@ -31,7 +31,7 @@ def iamge_from_inchi_str(partNidx):
     return
 
 if __name__=='__main__':
-    ds_path_str = Path('data_path.txt').read_text()[:-1]
+    ds_path_str = Path('data_path.txt').read_text()
     ds_path = Path(ds_path_str)
     pubchem_dir_path = ds_path/'external/pubchem/'
     pubchem_texts_dir_path = pubchem_dir_path/'inchi_texts'

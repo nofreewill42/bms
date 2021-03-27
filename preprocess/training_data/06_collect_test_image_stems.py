@@ -5,7 +5,7 @@ from pathlib import Path
 
 if __name__ == '__main__':
     # collect images
-    ds_path_str = Path('data_path.txt').read_text()[:-1]
+    ds_path_str = Path('data_path.txt').read_text()
     ds_path = Path(ds_path_str)
     tests_path = ds_path/'images'/'test'
     pkl_path = ds_path/'samples'/'test_img_stems.pkl'

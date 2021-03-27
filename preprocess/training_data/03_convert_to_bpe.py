@@ -6,7 +6,7 @@ import sentencepiece as sp
 
 
 if __name__ == '__main__':
-    ds_path_str = Path('data_path.txt').read_text()[:-1]
+    ds_path_str = Path('data_path.txt').read_text()
     ds_path = Path(ds_path_str)
 
     # INPUT - START
