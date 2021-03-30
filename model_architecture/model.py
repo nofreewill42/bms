@@ -70,16 +70,7 @@ class Model(nn.Module):
         dec = self.decoder(tgt,src)         # j, b, d_model
         dec_out = self.dec_classifier(dec)  # j, b, bpe_num
         dec_out = dec_out.transpose(0,1)    # b, j, bpe_num
-        if tgt_ids_b is None:
-            return dec_out
-
-        # mixup
-        tgt_b = self.dec_emb(tgt_ids_b).permute(1, 0, 2)  # j, b, d_model
-        dec_b = self.decoder(tgt_b,src)         # j, b, d_model
-        dec_out_b = self.dec_classifier(dec_b)  # j, b, bpe_num
-        dec_out_b = dec_out_b.transpose(0,1)    # b, j, bpe_num
-
-        return dec_out, dec_out_b
+        return dec_out
 
 
     def predict(self, imgs_tensor, max_pred_len=160):
@@ -87,12 +78,6 @@ class Model(nn.Module):
         bs = len(imgs_tensor)
 
         with torch.cuda.amp.autocast(enabled=False):
-            # if True:
-            #     conv = nn.Conv2d(1,1,3,1,1, bias=False).to(device)
-            #     conv.weight.data[:]=1/9
-            #     imgs_tensor = imgs_tensor*0.0327+0.0044
-            #     imgs_tensor = imgs_tensor * (conv(imgs_tensor)>1.01/9)
-            #     imgs_tensor = (imgs_tensor - 0.0044) / 0.0327
             imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
 
         src = self.enc_emb(imgs_tensor)

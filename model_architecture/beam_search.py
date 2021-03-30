@@ -50,7 +50,7 @@ class BeamSearcher:
         enc_outs = [enc_outs[i].unsqueeze(2).repeat(1,1,bw,1).reshape(-1,bs*bw,self.models[i].dec_d_model)
                     for i in range(len(self.models))]
         caches = [caches[i].unsqueeze(3).repeat(1,1,1,bw,1)\
-                      .reshape(self.models[i].num_layers,-1,bs*bw,self.models[i].dec_d_model)
+                      .reshape(self.models[i].dec_num_layers,-1,bs*bw,self.models[i].dec_d_model)
                   for i in range(len(self.models))]
         decoded_tokens = torch.cat([torch.ones(bs * bw, 1).long().to('cuda:0'), topk_idxs.reshape(bs * bw, 1)], dim=1)
 

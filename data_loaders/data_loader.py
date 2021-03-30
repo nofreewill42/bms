@@ -19,7 +19,8 @@ class DS(Dataset):
         self.df = df
 
         # Augment
-        self.rotate_tfms = KA.RandomAffine(7., p=1.)
+        self.rotate_tfms = KA.RandomAffine(3., p=1., keepdim=True)
+        self.cutout_tfms = T.Compose(4*[KA.RandomErasing((0.003,0.003),p=1., keepdim=True)])
 
         # Fill with with indices before each epoch
         self.batches = []
@@ -79,7 +80,8 @@ class DS(Dataset):
             img_tensor = (img_tensor + add_noise) * rem_noise
             img_tensor.clamp_(max=max(max_val, max_val+np.random.uniform(-0.1,0.1)))
             # Rotate
-            img_tensor = self.rotate_tfms(img_tensor)[0]
+            img_tensor = self.cutout_tfms(img_tensor)
+            img_tensor = self.rotate_tfms(img_tensor)
         zero_tensor = torch.zeros(1, self.img_size, self.img_size)
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor

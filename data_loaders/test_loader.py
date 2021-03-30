@@ -19,14 +19,19 @@ class TestDS(Dataset):
         c1,c2,c3 = img_stem[:3]
         img_path = self.imgs_path/c1/c2/c3/(img_stem+'.png')
         img_pil = Image.open(img_path)
-        img_tensor = T.ToTensor()(img_pil)*-1 + 1
-
-        h,w = img_tensor.shape[1:]
-        if h>w: img_tensor = img_tensor.transpose(1, 2).flip(2)  # TODO: CNN decides
-        h, w = img_tensor.shape[1:]
+        w,h = img_pil.size
+        # Horizontalize
+        img_pil = img_pil if w >= h else img_pil.rotate(90, expand=True)  # TODO: CNN decides
+        w, h = img_pil.size
+        # Resize if needed
+        if max(w,h) > self.img_size:
+            ratio = min(self.img_size/w,self.img_size/h)
+            w,h = int(ratio*w), int(ratio*h)
+            img_pil = img_pil.resize((w,h), resample=Image.BICUBIC)
         dh, dw = (self.img_size - h) // 2, (self.img_size - w) // 2
+        img_tensor = T.ToTensor()(img_pil)*-1 + 1
         zero_tensor = torch.zeros(1, self.img_size, self.img_size)
-        zero_tensor[0, dh:dh + h, dw:dw + w] = img_tensor
+        zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor
-
+        img_tensor = (img_tensor - 0.0044) / 0.0327
         return img_tensor, img_stem

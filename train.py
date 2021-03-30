@@ -39,8 +39,6 @@ if __name__ == '__main__':
     BS = None
     epochs_num = 24
     start_epoch_num = 0
-    ls, ls_down_epoch_num = 0.00, 1
-    mixup_epochs, alpha = [], 0.4
     #
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     torch.backends.cudnn.benchmark = True
@@ -86,8 +84,8 @@ if __name__ == '__main__':
     w_val = open('training_stats/valid_stats.csv', open_mode, 1)
 
     # Train params
-    total_steps = int((epochs_num-len(mixup_epochs)/2)*len(trn_dl))
-    loss_fn = LabelSmoothingLoss(ls) if ls>0. else nn.CrossEntropyLoss(reduction='none')
+    total_steps = epochs_num*len(trn_dl)
+    loss_fn = nn.CrossEntropyLoss(reduction='none')
     optimizer = optim.Adam(model.parameters())
     lr_sched = lr_scheduler.OneCycleLR(optimizer,lr,total_steps,
                                        div_factor=1e3,pct_start=1/epochs_num,final_div_factor=1.)
@@ -96,23 +94,16 @@ if __name__ == '__main__':
     if start_epoch_num>0:
         model.load_state_dict(torch.load(f'model_weights/model_{start_epoch_num-1}.pth', map_location=device))
         for _ in range(start_epoch_num*len(trn_dl)): lr_sched.step()
-        if start_epoch_num>ls_down_epoch_num: loss_fn = nn.CrossEntropyLoss(reduction='none')
 
     # Train
     N = 0
     m = 0
     prev_sched_step_i = 0
     for epoch_num in range(start_epoch_num,epochs_num):
-        if epoch_num>ls_down_epoch_num: loss_fn = nn.CrossEntropyLoss(reduction='none')
         model.train()
-        use_mixup = epoch_num in mixup_epochs
-        if use_mixup:
-            trn_dl = DataLoader(trn_ds, batch_size=(bs*2 if use_mixup else bs),
-                                shuffle=True, drop_last=True,
-                                pin_memory=True, num_workers=8, prefetch_factor=4)
         for i, batch in enumerate(tqdm(trn_dl)):
             imgs_tensor, lbls_tensor, lbls_len = batch
-            n = (lbls_len-1).sum().item() //(2 if use_mixup else 1)
+            n = (lbls_len-1).sum().item()
             lbls_tensor = lbls_tensor[:,:lbls_len.max()]
             imgs_tensor, lbls_tensor = imgs_tensor.to(device), lbls_tensor.to(device)
 
@@ -120,25 +111,11 @@ if __name__ == '__main__':
             predict_tensor = lbls_tensor[:, 1:]
             predict_mask = (predict_tensor == 0)
 
-            if use_mixup:
-                imgs_tensor, lam = imgs_mixup(imgs_tensor, alpha=alpha)
-                history_tensor_a, history_tensor_b = history_tensor[:bs], history_tensor[bs:]
-                predict_tensor_a, predict_tensor_b = predict_tensor[:bs], predict_tensor[bs:]
-                predict_mask_a, predict_mask_b = predict_mask[:bs], predict_mask[bs:]
 
             with torch.cuda.amp.autocast(enabled=True):
-                if not use_mixup:
-                    dec_out = model(imgs_tensor, history_tensor)
-                    loss = loss_fn(dec_out.flatten(0,1), predict_tensor.flatten())
-                    loss = (loss*(~predict_mask.flatten())).sum()/(n if BS is None else BS)
-                else:
-                    dec_out_a, dec_out_b = model(imgs_tensor, history_tensor_a, history_tensor_b)
-                    loss_a = loss_fn(dec_out_a.flatten(0,1), predict_tensor_a.flatten())
-                    loss_a = (loss_a*(~predict_mask_a.flatten()))
-                    loss_b = loss_fn(dec_out_b.flatten(0,1), predict_tensor_b.flatten())
-                    loss_b = (loss_b*(~predict_mask_b.flatten()))
-                    lam = lam.repeat(1,lbls_tensor.size(1)-1,1,1).flatten()
-                    loss = (loss_a *lam + (1-lam)* loss_b).sum() / (n if BS is None else BS)
+                dec_out = model(imgs_tensor, history_tensor)
+                loss = loss_fn(dec_out.flatten(0,1), predict_tensor.flatten())
+                loss = (loss*(~predict_mask.flatten())).sum()/(n if BS is None else BS)
 
             scaler.scale(loss).backward()
 
@@ -154,9 +131,6 @@ if __name__ == '__main__':
                 for _ in range(i-prev_sched_step_i):
                     lr_sched.step()
                 prev_sched_step_i = i
-
-                if isinstance(loss_fn, LabelSmoothingLoss) and epoch_num==ls_down_epoch_num:
-                    loss_fn.smoothing = ls*(1 - (i+1)/len(trn_dl))
 
                 # Record
                 if m%100==0:

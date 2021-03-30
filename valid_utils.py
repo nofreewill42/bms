@@ -53,7 +53,7 @@ def levenshtein(model, val_dl, swp, device='cpu', w=None, max_pred_len=256):
             n += 1
 
             if w is not None:
-                w.write(f'"{pred_text}","{lbl_text}","{val_dl.dataset.samples[n-1][0]}",{lev_dist}\n')
+                w.write(f'"{pred_text}","{lbl_text}","{val_dl.dataset.df.iloc[n-1][0]}",{lev_dist}\n')
 
     model.train()
     return lev_sum/n
