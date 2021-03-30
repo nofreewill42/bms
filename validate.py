@@ -14,8 +14,8 @@ from model_architecture.beam_search import BeamSearcher
 
 if __name__ == '__main__':
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    img_size = 384#192
-    bpe_num = 4096#2**15
+    img_size = 192
+    bpe_num = 4096
     max_len = 256
     bs = 64
     torch.backends.cudnn.benchmark = True
@@ -32,13 +32,9 @@ if __name__ == '__main__':
     is_valid = np.array([i%50==0 for i in range(len(df))])
     valid_df = df.iloc[is_valid]
 
-    sp.SentencePieceProcessor()
-    subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
-    swp = sp.SentencePieceProcessor(str(subwords_path))
-
     val_ds = DS(imgs_path, img_size, valid_df, swp, train=False)
-    val_sampler = SplitterSampler(val_ds)
-    val_dl = DataLoader(val_ds, batch_sampler=val_sampler, pin_memory=True, num_workers=4)
+    val_sampler = SplitterSampler(val_ds, shuffle=False)
+    val_dl = DataLoader(val_ds, batch_sampler=val_sampler, pin_memory=True, num_workers=8, prefetch_factor=2)
     val_dl.dataset.build_new_split(bs, randomize=False, drop_last=False)
 
     # eval
@@ -48,14 +44,14 @@ if __name__ == '__main__':
     tfms3 = K.Rotate(torch.tensor(-0.1).to(device))
     tfms4 = K.Rotate(torch.tensor(-0.45).to(device))
     # Model
-    N, n = 32, 128
+    N, n = 32, 64
     enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 512,  8, 4*512, 6#16
     dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512,  8, 4*512, 6#768, 12, 4*768,  6
     model = Model(bpe_num, N, n,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                   max_len, tta=None).to(device)#114, tta=tfms2).to(device)
-    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/model_23.pth', map_location=device))
+    model.load_state_dict(torch.load(f'/home/nofreewill/Documents/kaggle/bms/bms-code/model_weights/model_0.pth', map_location=device))
     model.eval()
 
     # models = [model]*2

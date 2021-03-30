@@ -5,7 +5,7 @@ import multiprocessing
 cpus = multiprocessing.cpu_count()
 cpus = min(48,cpus)
 
-ds_path_str = Path('data_path.txt').read_text()[:-1]
+ds_path_str = Path('data_path.txt').read_text()
 ds_path = Path(ds_path_str)
 PATH = ds_path/'images'                  # input
 DEST = ds_path/'images'/'resized'        # output (DEST/size/{train,test})

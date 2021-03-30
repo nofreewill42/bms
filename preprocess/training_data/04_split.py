@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 if __name__ == '__main__':
-    ds_path_str = Path('data_path.txt').read_text()[:-1]
+    ds_path_str = Path('data_path.txt').read_text()
     ds_path = Path(ds_path_str)
     samples_dir_path = ds_path/'samples'
     samples_path = samples_dir_path/'samples.pkl'

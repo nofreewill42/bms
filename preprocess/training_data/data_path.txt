@@ -1,1 +1,1 @@
-/media/nofreewill/Datasets_nvme/kaggle/bms-data/
+/home/nofreewill/Documents/kaggle/bms/bms-data/
