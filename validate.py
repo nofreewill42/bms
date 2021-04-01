@@ -14,10 +14,10 @@ from model_architecture.beam_search import BeamSearcher
 
 if __name__ == '__main__':
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    img_size = 192
+    img_size = 384
     bpe_num = 4096
     max_len = 256
-    bs = 64
+    bs = 32
     torch.backends.cudnn.benchmark = True
 
     import pickle
@@ -44,9 +44,9 @@ if __name__ == '__main__':
     tfms3 = K.Rotate(torch.tensor(-0.1).to(device))
     tfms4 = K.Rotate(torch.tensor(-0.45).to(device))
     # Model
-    N, n = 32, 64
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 512,  8, 4*512, 6#16
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512,  8, 4*512, 6#768, 12, 4*768,  6
+    N, n = 32, 128
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 768, 24, 4*512, 6#16
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 768, 24, 4*512, 6#768, 12, 4*768,  6
     model = Model(bpe_num, N, n,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,

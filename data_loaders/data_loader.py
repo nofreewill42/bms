@@ -79,8 +79,9 @@ class DS(Dataset):
             rem_noise = (torch.rand_like(img_tensor)>r_rem)
             img_tensor = (img_tensor + add_noise) * rem_noise
             img_tensor.clamp_(max=max(max_val, max_val+np.random.uniform(-0.1,0.1)))
+            # Erase
+            img_tensor = self.erase_tfms(img_tensor)
             # Rotate
-            img_tensor = self.cutout_tfms(img_tensor)
             img_tensor = self.rotate_tfms(img_tensor)
         zero_tensor = torch.zeros(1, self.img_size, self.img_size)
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
@@ -105,6 +106,21 @@ class DS(Dataset):
         rr = random.uniform(rrm, rrM)
         rr = np.exp(rr)
         return int(rr*w*rs), int(rr*h)
+
+    def erase_tfms(self, img_tensor, n=4, r=0.1):
+        _,h,w = img_tensor.shape
+        max_cut_size = max(h,w)
+        h_idxs = torch.arange(h).reshape(-1,1)
+        w_idxs = torch.arange(w).reshape(1,-1)
+        h_cut_start = torch.randint(h, size=(1,n))
+        w_cut_start = torch.randint(w, size=(n,1))
+        h_cut_size = torch.randint(int(max_cut_size*r), size=(1,n))
+        w_cut_size = torch.randint(int(max_cut_size*r), size=(n,1))
+        h_cuts = (h_cut_start<h_idxs)*(h_idxs<h_cut_start+h_cut_size)
+        w_cuts = (w_cut_start<w_idxs)*(w_idxs<w_cut_start+w_cut_size)
+        cuts = (h_cuts.float() @ w_cuts.float()).clamp(max=1.)*-1+1
+        img_tensor = img_tensor * cuts
+        return img_tensor
 
     def build_new_split(self, bs, randomize=False, drop_last=False):
         # Sort

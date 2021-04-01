@@ -3,6 +3,10 @@ from torch import nn
 
 
 from model_architecture.cnn_embedder import CNNEmbedder
+from model_architecture.pytorch_transformer.transformer import (
+    TransformerEncoder,
+    TransformerEncoderLayer,
+)
 from model_architecture.causal_transformer_decoder import (
     CausalTransformerDecoder,
     CausalTransformerDecoderLayer,
@@ -13,6 +17,7 @@ class Model(nn.Module):
     def __init__(self, bpe_num, N, n,
                  enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                  dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
+                 dropout_p = 0.1, dropout_dec_emb = 0.1,
                  max_trn_len=128, tta=None):
         super().__init__()
         self.dec_d_model = dec_d_model
@@ -21,17 +26,19 @@ class Model(nn.Module):
         # CNN
         self.enc_emb = CNNEmbedder(enc_d_model,N,n)
         # ENC
-        self.encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=enc_d_model, nhead=enc_nhead, dim_feedforward=enc_dim_feedforward),
+        self.encoder = TransformerEncoder(
+            TransformerEncoderLayer(d_model=enc_d_model, nhead=enc_nhead, dim_feedforward=enc_dim_feedforward,
+                                    dropout=dropout_p),
             num_layers=enc_num_layers,
         )
         # ENC2DEC
         self.enc2dec = nn.Linear(enc_d_model, dec_d_model)
         # DEC
         self.dec_emb = nn.Embedding(bpe_num, dec_d_model)
-        self.dec_emb_dropout = nn.Dropout()
+        self.dec_emb_dropout = nn.Dropout(dropout_dec_emb)
         self.decoder = CausalTransformerDecoder(
-            CausalTransformerDecoderLayer(d_model=dec_d_model, nhead=dec_nhead, dim_feedforward=dec_dim_feedforward),
+            CausalTransformerDecoderLayer(d_model=dec_d_model, nhead=dec_nhead, dim_feedforward=dec_dim_feedforward,
+                                          dropout=dropout_p),
             num_layers=dec_num_layers,
             max_trn_len=max_trn_len,
         )
@@ -50,7 +57,7 @@ class Model(nn.Module):
         elif isinstance(module, nn.Conv2d):
             nn.init.kaiming_normal_(module.weight.data)
 
-    def forward(self, imgs_tensor, tgt_ids, tgt_ids_b=None):
+    def forward(self, imgs_tensor, tgt_ids, dropout_h=0.):
         # TTA - for validation
         with torch.cuda.amp.autocast(enabled=False):
             imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
@@ -59,7 +66,7 @@ class Model(nn.Module):
         src = src.flatten(2,3).permute(2,0,1)  # i, b, d_model
 
         # enc
-        src = self.encoder(src)                # i, b, d_model
+        src = self.encoder(src, dropout_h=dropout_h)  # i, b, d_model
 
         # enc2dec
         src = self.enc2dec(src)
@@ -67,9 +74,9 @@ class Model(nn.Module):
         # dec
         tgt = self.dec_emb(tgt_ids).permute(1, 0, 2)  # j, b, d_model
         tgt = self.dec_emb_dropout(tgt)
-        dec = self.decoder(tgt,src)         # j, b, d_model
-        dec_out = self.dec_classifier(dec)  # j, b, bpe_num
-        dec_out = dec_out.transpose(0,1)    # b, j, bpe_num
+        dec = self.decoder(tgt,src,dropout_h=dropout_h)  # j, b, d_model
+        dec_out = self.dec_classifier(dec)     # j, b, bpe_num
+        dec_out = dec_out.transpose(0,1)       # b, j, bpe_num
         return dec_out
 
 

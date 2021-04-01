@@ -1,21 +1,21 @@
 import torch
-import torch.nn as nn
+from model_architecture.pytorch_transformer.transformer import TransformerDecoder, TransformerDecoderLayer
 
 
-class CausalTransformerDecoder(nn.TransformerDecoder):
+class CausalTransformerDecoder(TransformerDecoder):
     def __init__(self, decoder_layer, num_layers, max_trn_len):
         super().__init__(decoder_layer, num_layers)
         future_mask = generate_future_mask(max_trn_len)
         self.register_buffer('future_mask', future_mask)
 
-    def forward(self, tgt, src, cache=None, causal=False):
+    def forward(self, tgt, src, cache=None, causal=False, dropout_h=0.):
 
         output = tgt
 
         # Loss
         if not causal:
             for mod in self.layers:
-                output = mod(output, src, self.future_mask[:tgt.size(0),:tgt.size(0)])
+                output = mod(output, src, self.future_mask[:tgt.size(0),:tgt.size(0)], dropout_h=dropout_h)
             return output
 
         # Generate
@@ -33,11 +33,11 @@ class CausalTransformerDecoder(nn.TransformerDecoder):
 
         return output, new_cache
 
-class CausalTransformerDecoderLayer(nn.TransformerDecoderLayer):
-    def forward(self, tgt, src, tgt_mask=None, causal=False):
+class CausalTransformerDecoderLayer(TransformerDecoderLayer):
+    def forward(self, tgt, src, tgt_mask=None, causal=False, dropout_h=0.):
 
         if not causal:
-            return super().forward(tgt, src, tgt_mask=tgt_mask)
+            return super().forward(tgt, src, tgt_mask=tgt_mask, dropout_h=dropout_h)
 
         tgt_last_tok = tgt[-1:, :, :]
 

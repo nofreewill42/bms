@@ -31,14 +31,29 @@ def imgs_mixup(imgs_tensor, alpha=0.4):
 
 if __name__ == '__main__':
     #
-    img_size = 192
+    start_epoch_num = 0
+    #
+    img_size = 384
     bpe_num = 4096
     max_len = 256
     lr = 3e-4
     bs = 128
     BS = None
     epochs_num = 24
-    start_epoch_num = 0
+    # model
+    N, n = 32, 128
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 768, 24, 4*512, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 768, 24, 4*512, 6
+    #
+    div_factor = 1e3
+    pct_start = 1 / epochs_num
+    final_div_factor = 1.
+    # clip grad
+    max_norm = 1.0
+    #
+    dropout_p = 0.1
+    dropout_h_base = 0.1
+    dropout_dec_emb = 0.1
     #
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     torch.backends.cudnn.benchmark = True
@@ -70,12 +85,10 @@ if __name__ == '__main__':
                         pin_memory=True, num_workers=8, prefetch_factor=4)
 
     # Model
-    N, n = 32, 64
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 512, 8, 4*512, 6#24
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512, 8, 4*512, 6#12
     model = Model(bpe_num, N, n,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
+                  dropout_p, dropout_dec_emb,
                   max_len).to(device)
 
     # Record
@@ -88,7 +101,7 @@ if __name__ == '__main__':
     loss_fn = nn.CrossEntropyLoss(reduction='none')
     optimizer = optim.Adam(model.parameters())
     lr_sched = lr_scheduler.OneCycleLR(optimizer,lr,total_steps,
-                                       div_factor=1e3,pct_start=1/epochs_num,final_div_factor=1.)
+                                       div_factor=div_factor,pct_start=pct_start,final_div_factor=final_div_factor)
     scaler = torch.cuda.amp.GradScaler()
 
     if start_epoch_num>0:
@@ -111,9 +124,14 @@ if __name__ == '__main__':
             predict_tensor = lbls_tensor[:, 1:]
             predict_mask = (predict_tensor == 0)
 
-
+            # drop head
+            if epoch_num == 0:
+                dropout_h = dropout_h_base * 2 * (len(trn_dl)-i)/len(trn_dl)
+            else:
+                dropout_h = dropout_h_base * 2 * ((epoch_num-1)*len(trn_dl) + i)/((epochs_num-1)*len(trn_dl))
+            # forward
             with torch.cuda.amp.autocast(enabled=True):
-                dec_out = model(imgs_tensor, history_tensor)
+                dec_out = model(imgs_tensor, history_tensor, dropout_h=dropout_h)
                 loss = loss_fn(dec_out.flatten(0,1), predict_tensor.flatten())
                 loss = (loss*(~predict_mask.flatten())).sum()/(n if BS is None else BS)
 
@@ -122,7 +140,7 @@ if __name__ == '__main__':
             N += n
             if BS is None or N>=BS:
                 scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
 
                 scaler.step(optimizer)
                 scaler.update()
