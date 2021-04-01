@@ -13,12 +13,12 @@ class BNLayer(nn.Module):
         x = nn.ReLU()(x) if self.r else x
         return x
 class Layer(nn.Module):
-    def __init__(self, f_in, f_out, s=2, r=True):
+    def __init__(self, f_in, f_out, ff, s=2, r=True):
         super().__init__()
         self.bnl1 = BNLayer(f_in, f_out, 3, s, 1)
         self.bnl2 = BNLayer(f_out, f_out, 3, 1, 1, r=False)
-        self.bnl3 = BNLayer(f_out, f_out, 3, 1, 1)
-        self.bnl4 = BNLayer(f_out, f_out, 3, 1, 1, r=False)
+        self.bnl3 = BNLayer(f_out,    ff, 3, 1, 1)
+        self.bnl4 = BNLayer(ff   , f_out, 3, 1, 1, r=False)
         self.s = s
         self.r = r
         self.pool = BNLayer(f_in,f_in,3,1,1) if s==1 else nn.MaxPool2d(2,s,0)
@@ -29,14 +29,14 @@ class Layer(nn.Module):
         x = torch.cat((x, x_pool), dim=1) if self.r else x
         return x
 class CNNEmbedder(nn.Module):
-    def __init__(self, d_model, N, n):
+    def __init__(self, d_model, N, n, ff, first_k, first_s, last_s):
         super().__init__()
-        self.bnl1 = BNLayer(1, N, 3, 2, 1)
-        self.layer1 = Layer(N        , n)
-        self.layer2 = Layer(n + N    , n)
-        self.layer3 = Layer(2 * n + N, n)
-        self.layer4 = Layer(3 * n + N, n, s=2)
-        self.layer5 = Layer(4 * n + N, d_model, s=1, r=False)
+        self.bnl1 = BNLayer(1, N, first_k, first_s, 1)
+        self.layer1 = Layer(N        , n, ff)
+        self.layer2 = Layer(n + N    , n, ff)
+        self.layer3 = Layer(2 * n + N, n, ff)
+        self.layer4 = Layer(3 * n + N, n, ff, s=2)
+        self.layer5 = Layer(4 * n + N, d_model, ff, s=last_s, r=False)
     def forward(self, x):
         x = self.bnl1(x)
         x = self.layer1(x)

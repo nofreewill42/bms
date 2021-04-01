@@ -36,12 +36,12 @@ if __name__ == '__main__':
     img_size = 384
     bpe_num = 4096
     max_len = 256
-    lr = 1e-4
-    bs = 96
+    lr = 3e-4
+    bs = 64
     BS = None
     epochs_num = 24
     # model
-    N, n = 32, 128
+    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
     enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
     dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
     #
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                         pin_memory=True, num_workers=8, prefetch_factor=4)
 
     # Model
-    model = Model(bpe_num, N, n,
+    model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                   dropout_p, dropout_dec_emb,

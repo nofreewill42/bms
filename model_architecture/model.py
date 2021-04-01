@@ -14,7 +14,7 @@ from model_architecture.causal_transformer_decoder import (
 
 
 class Model(nn.Module):
-    def __init__(self, bpe_num, N, n,
+    def __init__(self, bpe_num, N, n, ff, first_k, first_s, last_s,
                  enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                  dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                  dropout_p = 0.1, dropout_dec_emb = 0.1,
@@ -24,7 +24,7 @@ class Model(nn.Module):
         self.dec_num_layers= dec_num_layers
         self.tta = tta
         # CNN
-        self.enc_emb = CNNEmbedder(enc_d_model,N,n)
+        self.enc_emb = CNNEmbedder(enc_d_model,N,n,ff, first_k, first_s, last_s)
         # ENC
         self.encoder = TransformerEncoder(
             TransformerEncoderLayer(d_model=enc_d_model, nhead=enc_nhead, dim_feedforward=enc_dim_feedforward,
