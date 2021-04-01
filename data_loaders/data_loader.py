@@ -20,7 +20,6 @@ class DS(Dataset):
 
         # Augment
         self.rotate_tfms = KA.RandomAffine(3., p=1., keepdim=True)
-        self.cutout_tfms = T.Compose(4*[KA.RandomErasing((0.003,0.003),p=1., keepdim=True)])
 
         # Fill with with indices before each epoch
         self.batches = []
@@ -100,22 +99,22 @@ class DS(Dataset):
     def get_new_sizes(self, w,h):#,W,H):
         rs = 0.08
         rs = random.uniform(1-rs, 1+rs)
-        rrm = 0.47
+        rrm = 0.57
         rrM = min(1/rrm, self.img_size/max(w*rs,h))  # max out at img_size
         rrm, rrM = np.log(rrm), np.log(rrM)
         rr = random.uniform(rrm, rrM)
         rr = np.exp(rr)
         return int(rr*w*rs), int(rr*h)
 
-    def erase_tfms(self, img_tensor, n=4, r=0.1):
+    def erase_tfms(self, img_tensor, n=4, r=0.04):
         _,h,w = img_tensor.shape
         max_cut_size = max(h,w)
         h_idxs = torch.arange(h).reshape(-1,1)
         w_idxs = torch.arange(w).reshape(1,-1)
         h_cut_start = torch.randint(h, size=(1,n))
         w_cut_start = torch.randint(w, size=(n,1))
-        h_cut_size = torch.randint(int(max_cut_size*r), size=(1,n))
-        w_cut_size = torch.randint(int(max_cut_size*r), size=(n,1))
+        h_cut_size = torch.randint(int(max_cut_size*r)+1, size=(1,n))
+        w_cut_size = torch.randint(int(max_cut_size*r)+1, size=(n,1))
         h_cuts = (h_cut_start<h_idxs)*(h_idxs<h_cut_start+h_cut_size)
         w_cuts = (w_cut_start<w_idxs)*(w_idxs<w_cut_start+w_cut_size)
         cuts = (h_cuts.float() @ w_cuts.float()).clamp(max=1.)*-1+1

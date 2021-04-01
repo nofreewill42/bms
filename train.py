@@ -36,23 +36,24 @@ if __name__ == '__main__':
     img_size = 384
     bpe_num = 4096
     max_len = 256
-    lr = 3e-4
-    bs = 128
+    lr = 1e-4
+    bs = 96
     BS = None
     epochs_num = 24
     # model
     N, n = 32, 128
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 768, 24, 4*512, 6
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 768, 24, 4*512, 6
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
     #
     div_factor = 1e3
     pct_start = 1 / epochs_num
     final_div_factor = 1.
     # clip grad
     max_norm = 1.0
+    weight_decay = 0.
     #
-    dropout_p = 0.1
-    dropout_h_base = 0.1
+    dropout_p = 0.072
+    dropout_h_base = 0.063
     dropout_dec_emb = 0.1
     #
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -63,9 +64,14 @@ if __name__ == '__main__':
     imgs_path = ds_path/'images/resized'/str(img_size)/'train'
     imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/train'
     df = pd.read_csv(ds_path/'train_labels.csv')
-    is_valid = np.array([i%50==0 for i in range(len(df))])
+    is_valid = np.array([i%50==0 for i in range(len(df))])  # Split
     train_df = df.iloc[~is_valid]
     valid_df = df.iloc[is_valid]
+    weights_df = pd.read_csv(ds_path / 'train_labels_weights.csv')[~is_valid]
+    weights_df.values[:,3] = np.power(weights_df.values[:,3], 0.50)  # Atom rarity
+    weights_df.values[:,4] = np.power(weights_df.values[:,4], 0.25)  # Layer rarity
+    weights_df.values[:,1:] = weights_df.values[:,1:]/weights_df.values[:,1:].sum(axis=0)
+    weights = (weights_df.values[:,1:] * np.array([1.4,1.,0.7,0.5])).sum(axis=1).astype(np.float32)
 
     sp.SentencePieceProcessor()
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
@@ -78,7 +84,6 @@ if __name__ == '__main__':
 
     trn_ds = DS(imgs_path, img_size, train_df, swp, max_len, train=True)
     tqdm.pandas()
-    weights = train_df.progress_apply(lambda x: len(x[1])**1, axis=1).to_list()
     trn_sampler = torch.utils.data.WeightedRandomSampler(weights, len(train_df), replacement=True)
     trn_dl = DataLoader(trn_ds, batch_size=bs, sampler=trn_sampler,
                         drop_last=True,
@@ -99,7 +104,7 @@ if __name__ == '__main__':
     # Train params
     total_steps = epochs_num*len(trn_dl)
     loss_fn = nn.CrossEntropyLoss(reduction='none')
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(),weight_decay=weight_decay)
     lr_sched = lr_scheduler.OneCycleLR(optimizer,lr,total_steps,
                                        div_factor=div_factor,pct_start=pct_start,final_div_factor=final_div_factor)
     scaler = torch.cuda.amp.GradScaler()
