@@ -43,11 +43,11 @@ if __name__ == '__main__':
     tfms2 = K.Rotate(torch.tensor(0.15).to(device))
     tfms3 = K.Rotate(torch.tensor(-0.1).to(device))
     tfms4 = K.Rotate(torch.tensor(-0.45).to(device))
-    # Model
-    N, n = 32, 128
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 768, 24, 4*512, 6#16
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 768, 24, 4*512, 6#768, 12, 4*768,  6
-    model = Model(bpe_num, N, n,
+    # model
+    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
+    model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                   max_len, tta=None).to(device)#114, tta=tfms2).to(device)
@@ -62,8 +62,8 @@ if __name__ == '__main__':
     tfmss = [tfms1, tfms2, tfms3, tfms4]
 
     from valid_utils import levenshtein, validate
-    w = (ds_path/'beam_search_output.csv').open('a')
-    for bw in [2]:#[0,1,2,3,4,6,8,12,16,32,96]:  # 3
+    w = (ds_path/'beam_search_output.csv').open('a', buffering=1)
+    for bw in [0]:#[0,1,2,3,4,6,8,12,16,32,96]:  # 3
         print(f'{bw}: ', end='')
         w.write(f',,,,{bw}\n')
         if (bw == 0):
