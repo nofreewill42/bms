@@ -88,7 +88,7 @@ class DS(Dataset):
         img_tensor = (img_tensor - 0.0044) / 0.0327
 
         # Augment
-        inchi_str = inchi_str[10:]
+        inchi_str = inchi_str[9:]
         bpe_ids = [1]+self.swp.encode(inchi_str,enable_sampling=self.train,alpha=0.1)+[2]
         bpe_ids = bpe_ids if len(bpe_ids)-1 < self.max_len else [1]+self.swp.encode(inchi_str)+[2]
         bpe_len = len(bpe_ids)
@@ -98,13 +98,14 @@ class DS(Dataset):
 
     def get_new_sizes(self, w,h):#,W,H):
         rs = 0.08
-        rs = random.uniform(1-rs, 1+rs)
+        rs = random.uniform(1-rs, 1)
         rrm = 0.57
         rrM = min(1/rrm, self.img_size/max(w*rs,h))  # max out at img_size
         rrm, rrM = np.log(rrm), np.log(rrM)
         rr = random.uniform(rrm, rrM)
         rr = np.exp(rr)
-        return int(rr*w*rs), int(rr*h)
+        w, h = (rr * w * rs, rr * h) if random.random() > 0.5 else (rr * w, rr * h * rs)
+        return int(w), int(h)
 
     def erase_tfms(self, img_tensor, n=4, r=0.04):
         _,h,w = img_tensor.shape

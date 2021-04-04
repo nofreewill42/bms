@@ -45,13 +45,13 @@ if __name__ == '__main__':
     enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
     dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
     #
-    div_factor = 1e3
+    div_factor = lr / 3e-7
     pct_start = 1 / epochs_num
-    final_div_factor = 1.
+    final_div_factor = (lr/div_factor) / 1e-5
     # clip grad
     max_norm = 1.0
-    weight_decay = 0.
     #
+    weight_decay = 0.
     dropout_p = 0.072
     dropout_h_base = 0.063
     dropout_dec_emb = 0.1
