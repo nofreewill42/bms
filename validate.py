@@ -17,7 +17,7 @@ if __name__ == '__main__':
     img_size = 384
     bpe_num = 4096
     max_len = 256
-    bs = 32
+    bs = 64
     torch.backends.cudnn.benchmark = True
 
     import pickle
@@ -38,11 +38,10 @@ if __name__ == '__main__':
     val_dl.dataset.build_new_split(bs, randomize=False, drop_last=False)
 
     # eval
-    #tfms1 = T.Compose([K.Resize(int(img_size*0.98),'bicubic'), K.Resize(img_size,'bicubic')])#nn.Identity()#
-    tfms1 = K.Rotate(torch.tensor(0.5).to(device))
-    tfms2 = K.Rotate(torch.tensor(0.15).to(device))
-    tfms3 = K.Rotate(torch.tensor(-0.1).to(device))
-    tfms4 = K.Rotate(torch.tensor(-0.45).to(device))
+    tfms1 = K.Rotate(torch.tensor(0.3).to(device))
+    tfms2 = K.Rotate(torch.tensor(0.18).to(device))
+    tfms3 = K.Rotate(torch.tensor(-0.15).to(device))
+    tfms4 = K.Rotate(torch.tensor(-0.27).to(device))
     # model
     N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
     enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
@@ -50,20 +49,17 @@ if __name__ == '__main__':
     model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
-                  max_len, tta=None).to(device)#114, tta=tfms2).to(device)
-    model.load_state_dict(torch.load(f'/home/nofreewill/Documents/kaggle/bms/bms-code/model_weights/model_0.pth', map_location=device))
+                  max_trn_len=max_len, tta=None).to(device)#114, tta=tfms2).to(device)
+    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/done/model_23_C.pth', map_location=device))
     model.eval()
 
-    # models = [model]*2
-    # weights = [1.,1.]
-    # tfmss = [tfms1, tfms2]
     models = [model]*4
-    weights = [1.]*4
+    weights = [1.,0.9,0.8,0.95]
     tfmss = [tfms1, tfms2, tfms3, tfms4]
 
     from valid_utils import levenshtein, validate
     w = (ds_path/'beam_search_output.csv').open('a', buffering=1)
-    for bw in [0]:#[0,1,2,3,4,6,8,12,16,32,96]:  # 3
+    for bw in [3]:#[0,1,2,3,4,6,8,12,16,32,96]:  # 3
         print(f'{bw}: ', end='')
         w.write(f',,,,{bw}\n')
         if (bw == 0):

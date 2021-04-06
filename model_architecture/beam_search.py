@@ -27,8 +27,8 @@ class BeamSearcher:
 
         # Initialize
 
-        #enc_outs = [model.encoder_output(self.tfmss[i](imgs_tensor)) for i, model in enumerate(self.models)]
-        enc_outs = [model.encoder_output(imgs_tensor) for i, model in enumerate(self.models)]
+        enc_outs = [model.encoder_output(self.tfmss[i](imgs_tensor)) for i, model in enumerate(self.models)]
+        #enc_outs = [model.encoder_output(imgs_tensor) for i, model in enumerate(self.models)]
 
         start_tokens = torch.ones(bs, 1, device=device, dtype=torch.long)
         caches = [None]*len(self.models)

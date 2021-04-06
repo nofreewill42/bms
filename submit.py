@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     imgs_path = ds_path/'resized'/str(img_size)/'test'
     imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/test'
-    test_stems = pickle.load((ds_path/'samples/test_img_stems.pkl').open('rb'))
+    test_stems = pickle.load((ds_path/'samples/test_img_stems_sorted.pkl').open('rb'))[::-1]
 
     sp.SentencePieceProcessor()
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
@@ -35,29 +35,27 @@ if __name__ == '__main__':
     test_dl = DataLoader(test_ds, batch_size=bs, pin_memory=True, num_workers=4)
 
     # eval
-    tfms1 = K.Rotate(torch.tensor(0.5).to(device))
-    tfms2 = K.Rotate(torch.tensor(0.05).to(device))
-    tfms3 = K.Rotate(torch.tensor(-0.4).to(device))
-    #tfms4 = K.Rotate(torch.tensor(-0.45).to(device))
-    # Model
-    N, n = 32, 128
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 768, 12, 4*512, 6#16
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512,  8, 4*512, 6#768, 12, 4*768,  6
-    model = Model(bpe_num, N, n,
+    tfms1 = K.Rotate(torch.tensor(0.3).to(device))
+    tfms2 = K.Rotate(torch.tensor(-0.27).to(device))
+    # model
+    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
+    model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
-                  max_len, tta=None).to(device)#114, tta=tfms2).to(device)
-    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/model_23.pth', map_location=device))
+                  max_trn_len=max_len, tta=None).to(device)#114, tta=tfms2).to(device)
+    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/done/model_23_C.pth', map_location=device))
     model.eval()
 
-    models = [model]*3
-    weights = [1.]*3
-    tfmss = [tfms1, tfms2, tfms3]
+    models = [model]*2
+    weights = [1.]*2
+    tfmss = [tfms1, tfms2]
+    bw = 2
 
     from valid_utils import levenshtein, validate
     w = (ds_path/'submission.csv').open('w')
-    for bw in [3]:
-        m = model if (bw == 0) else BeamSearcher(models, weights, tfmss, bpe_num, bw)
+    m = model if (bw == 0) else BeamSearcher(models, weights, tfmss, bpe_num, bw)
 
     for j, batch in enumerate(tqdm(test_dl)):
         imgs_tensor, img_stems = batch

@@ -12,5 +12,5 @@ if __name__ == '__main__':
     print(f'Reading training labels - {train_labels_path}')
     train_df = pd.read_csv(train_labels_path)
     print(f'Writing InChI texts to file - {all_texts_path}')
-    train_df.InChI.apply(lambda x: x[10:]).to_csv(all_texts_path, sep='\t', header=False, index=False)  # \t : not inside quotes -> subwords processor
+    train_df.InChI.apply(lambda x: x[9:]).to_csv(all_texts_path, sep='\t', header=False, index=False)  # \t : not inside quotes -> subwords processor
     print('Done')

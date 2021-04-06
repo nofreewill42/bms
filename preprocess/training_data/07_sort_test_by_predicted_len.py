@@ -13,7 +13,7 @@ if __name__ == '__main__':
     test_img_stems_path = ds_path/'samples'/'test_img_stems.pkl'                # input
     test_img_stems_sorted_path = ds_path/'samples'/'test_img_stems_sorted.pkl'  # output
 
-    bpe_num = 2**15
+    bpe_num = 4096
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
     swp = sp.SentencePieceProcessor(str(subwords_path))
 

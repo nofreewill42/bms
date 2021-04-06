@@ -66,10 +66,10 @@ if __name__ == '__main__':
     train_df = df.iloc[~is_valid]
     valid_df = df.iloc[is_valid]
     weights_df = pd.read_csv(ds_path / 'train_labels_weights.csv')[~is_valid]
-    weights_df.values[:,3] = np.power(weights_df.values[:,3], 0.50)  # Atom rarity
-    weights_df.values[:,4] = np.power(weights_df.values[:,4], 0.25)  # Layer rarity
-    weights_df.values[:,1:] = weights_df.values[:,1:]/weights_df.values[:,1:].sum(axis=0)
-    weights = (weights_df.values[:,1:] * np.array([1.4,1.,0.7,0.5])).sum(axis=1).astype(np.float32)
+    weights_df.iloc[:,3] = np.power(weights_df.iloc[:,3], 0.50)  # Atom rarity
+    weights_df.iloc[:,4] = np.power(weights_df.iloc[:,4], 0.50)  # Layer rarity
+    weights_df.iloc[:,1:] = weights_df.iloc[:,1:]/weights_df.iloc[:,1:].sum(axis=0)
+    weights = (weights_df.iloc[:,1:] * np.array([1.4,1.,0.7,0.6])).sum(axis=1).astype(np.float32).values
 
     sp.SentencePieceProcessor()
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
@@ -157,8 +157,6 @@ if __name__ == '__main__':
                 if m%100==0:
                     loss = loss.item() * (1 if BS is None else BS / n)
                     w_trn.write(f'{i},{loss},{lr_sched.get_last_lr()[0]}\n')
-                # if m % 2500 == 0:
-                #     torch.save(model.state_dict(), f'model_weights/model_partial.pth')
                 m += 1
 
                 N = 0
@@ -171,9 +169,10 @@ if __name__ == '__main__':
         print('validate')
         val_loss = validate(model, val_dl, device)
         w_val.write(f',{val_loss}')
-        print('levenshtein')
-        val_lev = levenshtein(model, val_dl, swp, device)
-        w_val.write(f',{val_lev}')
+        if epoch_num%5==0 or epoch_num>=epochs_num-5:
+            print('levenshtein')
+            val_lev = levenshtein(model, val_dl, swp, device)
+            w_val.write(f',{val_lev}')
 
         w_val.write('\n')
 

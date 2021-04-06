@@ -31,7 +31,7 @@ class Layer(nn.Module):
 class CNNEmbedder(nn.Module):
     def __init__(self, d_model, N, n, ff, first_k, first_s, last_s):
         super().__init__()
-        self.bnl1 = BNLayer(1, N, first_k, first_s, 1)
+        self.bnl1 = BNLayer(1, N, first_k, first_s, (first_k-1)//2)
         self.layer1 = Layer(N        , n, ff)
         self.layer2 = Layer(n + N    , n, ff)
         self.layer3 = Layer(2 * n + N, n, ff)

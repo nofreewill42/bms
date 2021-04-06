@@ -19,7 +19,7 @@ class DS(Dataset):
         self.df = df
 
         # Augment
-        self.rotate_tfms = KA.RandomAffine(3., p=1., keepdim=True)
+        self.rotate_tfms = KA.RandomAffine(1., p=1., keepdim=True)
 
         # Fill with with indices before each epoch
         self.batches = []
@@ -87,7 +87,7 @@ class DS(Dataset):
         img_tensor = zero_tensor
         img_tensor = (img_tensor - 0.0044) / 0.0327
 
-        # Augment
+        # Label
         inchi_str = inchi_str[9:]
         bpe_ids = [1]+self.swp.encode(inchi_str,enable_sampling=self.train,alpha=0.1)+[2]
         bpe_ids = bpe_ids if len(bpe_ids)-1 < self.max_len else [1]+self.swp.encode(inchi_str)+[2]
