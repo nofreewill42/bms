@@ -19,7 +19,7 @@ class DS(Dataset):
         self.df = df
 
         # Augment
-        self.rotate_tfms = KA.RandomAffine(1., p=1., keepdim=True)
+        self.rotate_tfms = KA.RandomAffine(7., p=1., keepdim=True)
 
         # Fill with with indices before each epoch
         self.batches = []
@@ -36,11 +36,15 @@ class DS(Dataset):
         # Preprocess
         w,h = img_pil.size
         # Horizontalize
-        img_pil = img_pil if w >= h else img_pil.rotate(90, expand=True)  # TODO: CNN decides
+        img_pil = img_pil if w >= h else img_pil.rotate(90, expand=True)
         w, h = img_pil.size
         img_pil_orig = img_pil
         # Augment
         if self.train:
+            # Random -90 Rotate
+            if 1.33*h > w > 0.75*h:
+                img_pil = img_pil if random.random()<0.9 else img_pil.rotate(-90, expand=True)
+                w, h = img_pil.size
             # Add & Remove Points
             img_tensor = T.ToTensor()(img_pil)*-1+1
             max_val = img_tensor.max()

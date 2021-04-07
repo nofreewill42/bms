@@ -31,21 +31,21 @@ if __name__ == '__main__':
     #
     start_epoch_num = 0
     #
-    img_size = 384
+    img_size = 768
     bpe_num = 4096
     max_len = 256
     lr = 3e-4
     bs = 64
     BS = None
-    epochs_num = 24
+    epochs_num = 96
     # model
-    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
+    N, n, ff, first_k, first_s, last_s = 64, 128, 128, 7,4,1
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 512, 8, 2048, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512, 8, 2048, 6
     #
     div_factor = lr / 3e-7
     pct_start = 1 / epochs_num
-    final_div_factor = (lr/div_factor) / 1e-5
+    final_div_factor = (lr/div_factor) / 3e-6
     # clip grad
     max_norm = 1.0
     #
@@ -66,10 +66,12 @@ if __name__ == '__main__':
     train_df = df.iloc[~is_valid]
     valid_df = df.iloc[is_valid]
     weights_df = pd.read_csv(ds_path / 'train_labels_weights.csv')[~is_valid]
-    weights_df.iloc[:,3] = np.power(weights_df.iloc[:,3], 0.50)  # Atom rarity
-    weights_df.iloc[:,4] = np.power(weights_df.iloc[:,4], 0.50)  # Layer rarity
+    weights_df.iloc[:,1] = np.power(weights_df.iloc[:,1], 1.)  # Complexity
+    weights_df.iloc[:,2] = np.power(weights_df.iloc[:,2], 1.)  # Atom count
+    weights_df.iloc[:,3] = np.power(weights_df.iloc[:,3], 1.)  # Atom rarity
+    weights_df.iloc[:,4] = np.power(weights_df.iloc[:,4], 1.)  # Layer rarity
     weights_df.iloc[:,1:] = weights_df.iloc[:,1:]/weights_df.iloc[:,1:].sum(axis=0)
-    weights = (weights_df.iloc[:,1:] * np.array([1.4,1.,0.7,0.6])).sum(axis=1).astype(np.float32).values
+    weights = (weights_df.iloc[:,1:] * np.array([1.4,1.,0.7,0.5])).sum(axis=1).astype(np.float32).values
 
     sp.SentencePieceProcessor()
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'

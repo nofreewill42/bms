@@ -9,7 +9,7 @@ ds_path_str = Path('data_path.txt').read_text()
 ds_path = Path(ds_path_str)
 PATH = ds_path/'images'                  # input
 DEST = ds_path/'images'/'resized'        # output (DEST/size/{train,test})
-szs = (192, )                   # size(s)
+szs = (768, )                   # size(s)
 resample_type = Image.BICUBIC   # type of resampling
 
 def resize_img(im, fn, sz):
