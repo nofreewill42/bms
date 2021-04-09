@@ -43,23 +43,23 @@ if __name__ == '__main__':
     tfms3 = K.Rotate(torch.tensor(-0.15).to(device))
     tfms4 = K.Rotate(torch.tensor(-0.27).to(device))
     # model
-    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  512, 8, 2048, 6
+    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,2
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  256, 8, 2048, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  256, 8, 2048, 6
     model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                   max_trn_len=max_len, tta=None).to(device)#114, tta=tfms2).to(device)
-    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/done/model_23_C.pth', map_location=device))
+    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/model_4.pth', map_location=device))
     model.eval()
 
-    models = [model]*4
-    weights = [1.,0.9,0.8,0.95]
-    tfmss = [tfms1, tfms2, tfms3, tfms4]
+    models = [model]#*4
+    weights = [1.]#,0.9,0.8,0.95]
+    tfmss = [None]#tfms1, tfms2, tfms3, tfms4]
 
     from valid_utils import levenshtein, validate
     w = (ds_path/'beam_search_output.csv').open('a', buffering=1)
-    for bw in [3]:#[0,1,2,3,4,6,8,12,16,32,96]:  # 3
+    for bw in [0]:#[0,1,2,3,4,6,8,12,16,32,96]:  # 3
         print(f'{bw}: ', end='')
         w.write(f',,,,{bw}\n')
         if (bw == 0):
@@ -68,8 +68,8 @@ if __name__ == '__main__':
             print(val_score)
         else:
             m = BeamSearcher(models, weights, tfmss, bpe_num, bw)
-        lev_score = levenshtein(m, val_dl, swp, device, w)
-        print(lev_score)
-        w.write(f',,,,{bw},{lev_score}\n')
+        # lev_score = levenshtein(m, val_dl, swp, device, w)
+        # print(lev_score)
+        # w.write(f',,,,{bw},{lev_score}\n')
     w.close()
 

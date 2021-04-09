@@ -6,7 +6,7 @@ from pathlib import Path
 
 def process_inchi(inchi_str):
     atoms = ['C', 'H', 'B', 'Br', 'Cl', 'F', 'I', 'N', 'O', 'P', 'S', 'Si']
-    columns = atoms+['c','h','b','t','m','s','i','ih','ib','it','im','is']
+    columns = atoms+['formulae', 'c','h','b','t','m','s','i','ih','ib','it','im','is']
     processed_inchi = pd.Series(['']*len(columns), index=columns)
 
     inchi_parts = inchi_str.split('/')
@@ -16,11 +16,13 @@ def process_inchi(inchi_str):
     processed_inchi.values[:len(atoms)] = atom_numbers
     processed_inchi.values[len(atoms):] = ''
 
+    processed_inchi['formulae'] = formulae_str
+
     column_prefix = ''
     # c, h,b,t,m,s, i, ih,ib,it,im,is
     for inchi_part in inchi_parts[2:]:
         layer_type = inchi_part[0]
-        processed_inchi[column_prefix+layer_type] = inchi_part[1:]
+        processed_inchi[column_prefix+layer_type] = inchi_part
         if layer_type == 'i':
             column_prefix = 'i'
 

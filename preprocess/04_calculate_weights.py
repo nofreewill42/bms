@@ -15,18 +15,24 @@ if __name__ == '__main__':
     train_df.fillna('', inplace=True)
 
     print('Complexity')
-    complexity_df = train_df.iloc[:, 13].apply(lambda x: x.count('-') + x.count('-') * x.count('(') + x.count('('))
+    complexity_df = train_df.iloc[:, 14].apply(lambda x: x.count('-') + x.count('-') * x.count('(') + x.count('('))
 
     print('Atom counts')
     atom_counts_df = train_df.iloc[:, 1:13].sum(axis=1)
 
-    print('Atom rarity')
+    print('Atom (non)rarity')
     atom_present = (train_df.iloc[:, 1:13] > 0)
-    atom_rarity_df = (atom_present/atom_present.sum(axis=0)).sum(axis=1)
+    atom_rarity_df = atom_present/(1+atom_present.sum(axis=0))
+    atom_not_present = (~atom_present)
+    atom_non_rarity_df = atom_not_present/(1+atom_not_present.sum(axis=0))
+    atom_rarity_df = (atom_rarity_df + atom_non_rarity_df).sum(axis=1)
 
-    print('Layer rarity')
-    layer_present = (train_df.iloc[:, 13:20] != '')  # ih,ib,it,im,is not considered
-    layer_rarity_df = (layer_present/layer_present.sum(axis=0)).sum(axis=1)
+    print('Layer (non)rarity')
+    layer_present = (train_df.iloc[:, 14:21] != '')  # ih,ib,it,im,is are not considered
+    layer_rarity_df = layer_present/(1+layer_present.sum(axis=0))
+    layer_not_present = (~layer_present)
+    layer_non_rarity_df = layer_not_present/(1+layer_not_present.sum(axis=0))
+    layer_rarity_df = (layer_rarity_df + layer_non_rarity_df).sum(axis=1)
 
     print(f'Saving to {label_weights_path}')
     weights_df = pd.concat([train_df['image_id'], complexity_df, atom_counts_df, atom_rarity_df, layer_rarity_df], axis=1)

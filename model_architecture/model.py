@@ -17,7 +17,7 @@ class Model(nn.Module):
     def __init__(self, bpe_num, N, n, ff, first_k, first_s, last_s,
                  enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                  dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
-                 dropout_p = 0.1, dropout_dec_emb = 0.1,
+                 dropout_ff = 0.1, dropout_dec_emb = 0.1,
                  max_trn_len=128, tta=None):
         super().__init__()
         self.dec_d_model = dec_d_model
@@ -25,10 +25,12 @@ class Model(nn.Module):
         self.tta = tta
         # CNN
         self.enc_emb = CNNEmbedder(enc_d_model,N,n,ff, first_k, first_s, last_s)
+        # ADDITIONAL EMB
+        self.add_emb = nn.Embedding(32,enc_d_model)
         # ENC
         self.encoder = TransformerEncoder(
             TransformerEncoderLayer(d_model=enc_d_model, nhead=enc_nhead, dim_feedforward=enc_dim_feedforward,
-                                    dropout=dropout_p),
+                                    dropout=dropout_ff),
             num_layers=enc_num_layers,
         )
         # ENC2DEC
@@ -38,11 +40,15 @@ class Model(nn.Module):
         self.dec_emb_dropout = nn.Dropout(dropout_dec_emb)
         self.decoder = CausalTransformerDecoder(
             CausalTransformerDecoderLayer(d_model=dec_d_model, nhead=dec_nhead, dim_feedforward=dec_dim_feedforward,
-                                          dropout=dropout_p),
+                                          dropout=dropout_ff),
             num_layers=dec_num_layers,
             max_trn_len=max_trn_len,
         )
         self.dec_classifier = nn.Linear(dec_d_model, bpe_num)
+
+        self.add_classifier = nn.Sequential(nn.Linear(enc_d_model, 512), nn.ReLU(),
+                                            nn.Linear(512, 256), nn.ReLU(),
+                                            nn.Linear(256, 192))
 
         self.apply(self._init_weights)
 
@@ -57,7 +63,8 @@ class Model(nn.Module):
         elif isinstance(module, nn.Conv2d):
             nn.init.kaiming_normal_(module.weight.data)
 
-    def forward(self, imgs_tensor, tgt_ids, dropout_h=0.):
+    def forward(self, imgs_tensor, tgt_ids, dropout_p=0., dropout_h=0.):
+        bs = len(imgs_tensor)
         # TTA - for validation
         with torch.cuda.amp.autocast(enabled=False):
             imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
@@ -65,8 +72,15 @@ class Model(nn.Module):
         src = self.enc_emb(imgs_tensor)        # b, d_model, sqrt(i), sqrt(i)
         src = src.flatten(2,3).permute(2,0,1)  # i, b, d_model
 
+        # add
+        add = self.add_emb.weight.unsqueeze(1).repeat(1,bs,1)
+        src = torch.cat([add, src], dim=0)
+
         # enc
-        src = self.encoder(src, dropout_h=dropout_h)  # i, b, d_model
+        src = self.encoder(src, dropout_p=dropout_p, dropout_h=dropout_h)  # i, b, d_model
+
+        # add
+        add_out = self.add_classifier(src[:27]).transpose(0,1)
 
         # enc2dec
         src = self.enc2dec(src)
@@ -74,10 +88,11 @@ class Model(nn.Module):
         # dec
         tgt = self.dec_emb(tgt_ids).permute(1, 0, 2)  # j, b, d_model
         tgt = self.dec_emb_dropout(tgt)
-        dec = self.decoder(tgt,src,dropout_h=dropout_h)  # j, b, d_model
+        dec = self.decoder(tgt,src, dropout_p=dropout_p, dropout_h=dropout_h)  # j, b, d_model
         dec_out = self.dec_classifier(dec)     # j, b, bpe_num
         dec_out = dec_out.transpose(0,1)       # b, j, bpe_num
-        return dec_out
+
+        return dec_out, add_out
 
 
     def predict(self, imgs_tensor, max_pred_len=160):

@@ -19,12 +19,12 @@ class TransformerEncoder(Module):
         self.num_layers = num_layers
 
     def forward(self, src: Tensor, mask: Optional[Tensor] = None, src_key_padding_mask: Optional[Tensor] = None,
-                dropout_h: float = 0.) -> Tensor:
+                dropout_p: float = 0., dropout_h: float = 0.) -> Tensor:
         output = src
 
         for mod in self.layers:
             output = mod(output, src_mask=mask, src_key_padding_mask=src_key_padding_mask,
-                         dropout_h=dropout_h)
+                         dropout_p=dropout_p, dropout_h=dropout_h)
 
         return output
 
@@ -37,7 +37,8 @@ class TransformerDecoder(Module):
 
     def forward(self, tgt: Tensor, memory: Tensor, tgt_mask: Optional[Tensor] = None,
                 memory_mask: Optional[Tensor] = None, tgt_key_padding_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,  dropout_h: float = 0.) -> Tensor:
+                memory_key_padding_mask: Optional[Tensor] = None,
+                dropout_p: float = 0., dropout_h: float = 0.) -> Tensor:
         output = tgt
 
         for mod in self.layers:
@@ -45,7 +46,7 @@ class TransformerDecoder(Module):
                          memory_mask=memory_mask,
                          tgt_key_padding_mask=tgt_key_padding_mask,
                          memory_key_padding_mask=memory_key_padding_mask,
-                         dropout_h=dropout_h)
+                         dropout_p=dropout_p, dropout_h=dropout_h)
 
         if self.norm is not None:
             output = self.norm(output)
@@ -55,7 +56,7 @@ class TransformerDecoder(Module):
 class TransformerEncoderLayer(Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
         super(TransformerEncoderLayer, self).__init__()
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.self_attn = MultiheadAttention(d_model, nhead)
         # Implementation of Feedforward model
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)
@@ -69,10 +70,10 @@ class TransformerEncoderLayer(Module):
         self.activation = F.gelu
 
     def forward(self, src: Tensor, src_mask: Optional[Tensor] = None, src_key_padding_mask: Optional[Tensor] = None,
-                dropout_h: float = 0.) -> Tensor:
+                dropout_p: float = 0., dropout_h: float = 0.) -> Tensor:
         src2 = self.self_attn(src, src, src, attn_mask=src_mask,
                               key_padding_mask=src_key_padding_mask,
-                              dropout_h=dropout_h)[0]
+                              dropout_p=dropout_p, dropout_h=dropout_h)[0]
         src = src + self.dropout1(src2)
         src = self.norm1(src)
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
@@ -84,8 +85,8 @@ class TransformerEncoderLayer(Module):
 class TransformerDecoderLayer(Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
         super(TransformerDecoderLayer, self).__init__()
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.multihead_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.self_attn = MultiheadAttention(d_model, nhead)
+        self.multihead_attn = MultiheadAttention(d_model, nhead)
         # Implementation of Feedforward model
         self.linear1 = Linear(d_model, dim_feedforward)
         self.dropout = Dropout(dropout)
@@ -102,15 +103,15 @@ class TransformerDecoderLayer(Module):
 
     def forward(self, tgt: Tensor, memory: Tensor, tgt_mask: Optional[Tensor] = None, memory_mask: Optional[Tensor] = None,
                 tgt_key_padding_mask: Optional[Tensor] = None, memory_key_padding_mask: Optional[Tensor] = None,
-                dropout_h: float = 0.) -> Tensor:
+                dropout_p: float = 0., dropout_h: float = 0.) -> Tensor:
         tgt2 = self.self_attn(tgt, tgt, tgt, attn_mask=tgt_mask,
                               key_padding_mask=tgt_key_padding_mask,
-                              dropout_h=dropout_h)[0]
+                              dropout_p=dropout_p, dropout_h=dropout_h)[0]
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
         tgt2 = self.multihead_attn(tgt, memory, memory, attn_mask=memory_mask,
                                    key_padding_mask=memory_key_padding_mask,
-                                   dropout_h=dropout_h)[0]
+                                   dropout_p=dropout_p, dropout_h=dropout_h)[0]
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
         tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt))))

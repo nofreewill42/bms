@@ -3,23 +3,26 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 import random
+import re
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 from kornia import augmentation as KA
+import kornia as K
 
 
 class DS(Dataset):
-    def __init__(self, imgs_path, img_size, df, swp=None, max_len=256, train=False):
+    def __init__(self, imgs_path, img_size, df, swp=None, max_len=256, train=False, dropout_bpe=0.1):
         self.imgs_path = imgs_path
         self.img_size = img_size
         self.max_len = max_len
         self.train = train
         self.swp = swp
         self.df = df
+        self.dropout_bpe = dropout_bpe
 
         # Augment
-        self.rotate_tfms = KA.RandomAffine(7., p=1., keepdim=True)
+        self.rotate_tfms = KA.RandomAffine(5., p=1., keepdim=True)  # Changeable
 
         # Fill with with indices before each epoch
         self.batches = []
@@ -28,7 +31,32 @@ class DS(Dataset):
         return len(self.samples)
 
     def __getitem__(self, i):
-        image_id, inchi_str = self.df.iloc[i]
+        row = self.df.iloc[i]
+        # Input
+        image_id = row[0]
+        # Target
+        inchi_str = 'InChI=1S/' + '/'.join(row[13:])
+        inchi_str = re.sub(r'/+', '/', inchi_str)
+        inchi_str = inchi_str[:-1] if inchi_str.endswith('/') else inchi_str
+        # Additional Targets
+        atom_nums = np.array(row[1:13], dtype=np.int16)
+        h_present = int(row[15] != '')
+        b_plus = row[16].count('+')
+        b_minus = max(0, (row[16].count('-') - b_plus)//2)
+        t_plus = row[17].count('+')
+        t_minus = row[17].count('-')
+        m = 0 if row[18]=='' else int(row[18][1:]) + 1
+        s = 0 if row[19]=='' else int(row[19][1:]) + 1
+        i_present = int(row[20] != '')
+        ih_present = int(row[21] != '')
+        ib_plus = row[22].count('+')
+        ib_minus = max(0, (row[22].count('-') - b_plus)//2)
+        it_plus = row[23].count('+')
+        it_minus = row[23].count('-')
+        im_ = 0 if row[24]=='' else int(row[24][1:]) + 1
+        is_ = 0 if row[25]=='' else int(row[25][1:]) + 1
+        additional_target = torch.tensor([*atom_nums, h_present, b_plus, b_minus, t_plus, t_minus, m, s,
+                                          i_present, ih_present, ib_plus, ib_minus, it_plus, it_minus, im_, is_]).long()
         # "Real" data
         c1,c2,c3 = image_id[:3]
         img_path = self.imgs_path/c1/c2/c3/(image_id+'.png')
@@ -42,8 +70,8 @@ class DS(Dataset):
         # Augment
         if self.train:
             # Random -90 Rotate
-            if 1.33*h > w > 0.75*h:
-                img_pil = img_pil if random.random()<0.9 else img_pil.rotate(-90, expand=True)
+            if 1.33*h > w > 0.75*h:  # Changeable
+                img_pil = img_pil if random.random()<0.97 else img_pil.rotate(-90, expand=True)  # Changeable
                 w, h = img_pil.size
             # Add & Remove Points
             img_tensor = T.ToTensor()(img_pil)*-1+1
@@ -66,7 +94,7 @@ class DS(Dataset):
         # Augment
         if self.train:
             # Positioning
-            rh,rw = random.random()*0.2-0.1, random.random()*0.2-0.1
+            rh,rw = random.random()*0.2-0.1, random.random()*0.2-0.1  # Changeable
             dh,dw = int(self.img_size-h*(1+rh)) // 2, int(self.img_size-w*(1+rw)) // 2
             dh,dw = min(self.img_size-h, max(0, dh)), min(self.img_size-w, max(0, dw))
         else:
@@ -86,24 +114,26 @@ class DS(Dataset):
             img_tensor = self.erase_tfms(img_tensor)
             # Rotate
             img_tensor = self.rotate_tfms(img_tensor)
+        else:
+            pass#img_tensor = K.Rotate(torch.tensor(0.3))(img_tensor)
         zero_tensor = torch.zeros(1, self.img_size, self.img_size)
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor
         img_tensor = (img_tensor - 0.0044) / 0.0327
 
         # Label
-        inchi_str = inchi_str[9:]
-        bpe_ids = [1]+self.swp.encode(inchi_str,enable_sampling=self.train,alpha=0.1)+[2]
+        inchi_str = inchi_str[10:]
+        bpe_ids = [1]+self.swp.encode(inchi_str,enable_sampling=self.train,alpha=self.dropout_bpe)+[2]
         bpe_ids = bpe_ids if len(bpe_ids)-1 < self.max_len else [1]+self.swp.encode(inchi_str)+[2]
         bpe_len = len(bpe_ids)
         bpe_tensor = torch.zeros(self.max_len, dtype=torch.long)
         bpe_tensor[:bpe_len] = torch.tensor(bpe_ids, dtype=torch.long)
-        return img_tensor, bpe_tensor, bpe_len
+        return img_tensor, bpe_tensor, bpe_len, additional_target
 
     def get_new_sizes(self, w,h):#,W,H):
-        rs = 0.08
+        rs = 0.08  # Changeable
         rs = random.uniform(1-rs, 1)
-        rrm = 0.57
+        rrm = 0.57  # Changeable
         rrM = min(1/rrm, self.img_size/max(w*rs,h))  # max out at img_size
         rrm, rrM = np.log(rrm), np.log(rrM)
         rr = random.uniform(rrm, rrM)
@@ -111,7 +141,7 @@ class DS(Dataset):
         w, h = (rr * w * rs, rr * h) if random.random() > 0.5 else (rr * w, rr * h * rs)
         return int(w), int(h)
 
-    def erase_tfms(self, img_tensor, n=4, r=0.04):
+    def erase_tfms(self, img_tensor, n=4, r=0.04):  # Changeable
         _,h,w = img_tensor.shape
         max_cut_size = max(h,w)
         h_idxs = torch.arange(h).reshape(-1,1)
@@ -129,7 +159,7 @@ class DS(Dataset):
     def build_new_split(self, bs, randomize=False, drop_last=False):
         # Sort
         tqdm.pandas()
-        samples = self.df.progress_apply(lambda x: [1]+self.swp.encode(x[1])+[2], axis=1)
+        samples = self.df.progress_apply(lambda x: [1]+self.swp.encode('/'.join(x[13:]))+[2], axis=1)
         samples = sorted(samples, key=lambda x: (len(x)-1)*(1+randomize*(random.random()*0.4-0.2)))
         # Construct batches
         self.batches = [list(range(i,min(len(samples),i+bs))) for i in range(0,len(samples),bs)]
