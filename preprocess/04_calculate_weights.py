@@ -28,7 +28,7 @@ if __name__ == '__main__':
     atom_rarity_df = (atom_rarity_df + atom_non_rarity_df).sum(axis=1)
 
     print('Layer (non)rarity')
-    layer_present = (train_df.iloc[:, 14:21] != '')  # ih,ib,it,im,is are not considered
+    layer_present = (train_df.iloc[:, 14:] != '')  # not  # ih,ib,it,im,is are not considered
     layer_rarity_df = layer_present/(1+layer_present.sum(axis=0))
     layer_not_present = (~layer_present)
     layer_non_rarity_df = layer_not_present/(1+layer_not_present.sum(axis=0))

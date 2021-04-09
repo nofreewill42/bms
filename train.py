@@ -60,18 +60,19 @@ if __name__ == '__main__':
     ds_path = Path('/media/nofreewill/Datasets_nvme/kaggle/bms-data/').absolute()
     imgs_path = ds_path/'images/resized'/str(img_size)/'train'
     imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/train'
-    df = pd.read_csv(ds_path/'train_labels_processed.csv', low_memory=False).fillna('')
-    cdf = df[df.C > 0]  # Drop carbon-free molecules (only 7 out of 2.4M)
-    is_valid = np.array([i%50==0 for i in range(len(cdf))])  # Train-Valid Split
-    train_df = cdf.iloc[~is_valid]#.iloc[::100]
-    valid_df = cdf.iloc[is_valid]#.iloc[::10]
-    weights_df = pd.read_csv(ds_path / 'train_labels_weights.csv')[df.C > 0][~is_valid]#.iloc[::100]
-    weights_df.iloc[:,1] = np.power(weights_df.iloc[:,1], 1.00)  # Complexity
-    weights_df.iloc[:,2] = np.power(weights_df.iloc[:,2], 1.00)  # Atom count
+    df = pd.read_csv(ds_path/'train_labels_processed.csv', low_memory=False)
+    keep_ids = (df.C > 0) & df.ib.isna()
+    df = df[keep_ids].fillna('')
+    is_valid = np.array([i%50==0 for i in range(len(df))])  # Train-Valid Split
+    train_df = df.iloc[~is_valid]#.iloc[::100]
+    valid_df = df.iloc[is_valid]#.iloc[::10]
+    weights_df = pd.read_csv(ds_path / 'train_labels_weights.csv')[keep_ids][~is_valid]#.iloc[::100]
+    weights_df.iloc[:,1] = np.power(weights_df.iloc[:,1], 0.50)  # Complexity
+    weights_df.iloc[:,2] = np.power(weights_df.iloc[:,2], 0.50)  # Atom count
     weights_df.iloc[:,3] = np.power(weights_df.iloc[:,3], 0.50)  # Atom rarity
     weights_df.iloc[:,4] = np.power(weights_df.iloc[:,4], 0.50)  # Layer rarity
     weights_df.iloc[:,1:] = weights_df.iloc[:,1:]/(weights_df.iloc[:,1:].sum(axis=0))
-    weights = (weights_df.iloc[:,1:] * np.array([1.8,1.1,0.7,0.6])).sum(axis=1).astype(np.float32).values
+    weights = (weights_df.iloc[:,1:] * np.array([1.8,1.1,0.3,0.1])).sum(axis=1).astype(np.float32).values
 
     sp.SentencePieceProcessor()
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'
