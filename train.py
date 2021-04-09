@@ -25,17 +25,17 @@ if __name__ == '__main__':
     #
     start_epoch_num = 0
     #
-    img_size = 384
+    img_size = 160
     bpe_num = 4096
     max_len = 256
-    lr = 1e-3
+    lr = 3e-4
     bs = 64
     BS = None
     epochs_num = 96
     # model
-    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 512, 8, 2048, 6
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 512, 8, 2048, 6
+    N, n, ff, first_k, first_s, last_s = 32, 64, 64, 3,2,1
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 256, 8, 1024, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 256, 8, 1024, 6
     #
     div_factor = lr / 3e-7
     pct_start = 1 / epochs_num
@@ -45,8 +45,8 @@ if __name__ == '__main__':
     #
     weight_decay = 0.
     #
-    add_prop = 0.1
-    add_prop_ls = 0.001  # LabelSmoothing
+    add_prop = 0.0#1
+    add_prop_ls = 0.01  # LabelSmoothing
     # dropout
     dropout_ph = 0.12
     dropout_dec_emb = 0.1
@@ -132,7 +132,7 @@ if __name__ == '__main__':
             if epoch_num == 0:
                 dropout_p = dropout_ph * i/len(trn_dl)
                 dropout_h = dropout_ph - dropout_p
-                loss_prop = (1-add_prop) * i/len(trn_dl)
+                loss_prop = (1-add_prop) * i/len(trn_dl) if add_prop>0.0 else (1-add_prop)
             else:
                 dropout_h = dropout_ph * ((epoch_num-1)*len(trn_dl) + i)/((epochs_num-1)*len(trn_dl))
                 dropout_p = dropout_ph - dropout_h

@@ -14,7 +14,7 @@ from model_architecture.beam_search import BeamSearcher
 
 if __name__ == '__main__':
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    img_size = 384
+    img_size = 160
     bpe_num = 4096
     max_len = 256
     bs = 64
@@ -28,7 +28,9 @@ if __name__ == '__main__':
     swp = sp.SentencePieceProcessor(f'{ds_path}/subwords/bpe_{bpe_num}.model')
     imgs_path = ds_path/'resized'/str(img_size)/'train'
     imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/train'
-    df = pd.read_csv(ds_path/'train_labels.csv')
+    df = pd.read_csv(ds_path/'train_labels_processed.csv', low_memory=False)
+    keep_ids = (df.C > 0) & df.ib.isna()
+    df = df[keep_ids].fillna('')
     is_valid = np.array([i%50==0 for i in range(len(df))])
     valid_df = df.iloc[is_valid]
 
@@ -43,9 +45,9 @@ if __name__ == '__main__':
     tfms3 = K.Rotate(torch.tensor(-0.15).to(device))
     tfms4 = K.Rotate(torch.tensor(-0.27).to(device))
     # model
-    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,2
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  256, 8, 2048, 6
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  256, 8, 2048, 6
+    N, n, ff, first_k, first_s, last_s = 32, 64, 64, 3,2,1
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  256, 8, 1024, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers =  256, 8, 1024, 6
     model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
@@ -55,7 +57,7 @@ if __name__ == '__main__':
 
     models = [model]#*4
     weights = [1.]#,0.9,0.8,0.95]
-    tfmss = [None]#tfms1, tfms2, tfms3, tfms4]
+    tfmss = [torch.nn.Identity()]#tfms1, tfms2, tfms3, tfms4]
 
     from valid_utils import levenshtein, validate
     w = (ds_path/'beam_search_output.csv').open('a', buffering=1)
