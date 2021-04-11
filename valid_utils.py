@@ -9,7 +9,7 @@ def validate(model, val_dl, device='cpu'):
     N = 0
     val_loss = 0
     for j, batch in enumerate(tqdm(val_dl)):
-        imgs_tensor, lbls_tensor, lbls_len, additional_target = batch
+        imgs_tensor, lbls_tensor, lbls_len = batch
         N += (lbls_len-1).sum().item()
         lbls_tensor = lbls_tensor[:, :lbls_len.max()]
         imgs_tensor, lbls_tensor = imgs_tensor.to(device), lbls_tensor.to(device)
@@ -19,7 +19,7 @@ def validate(model, val_dl, device='cpu'):
         predict_mask = (predict_tensor==0)
 
         with torch.no_grad():
-            outs_tensor, add_out = model(imgs_tensor, history_tensor)
+            outs_tensor = model(imgs_tensor, history_tensor)
             loss = loss_fn(outs_tensor.flatten(0,1), predict_tensor.flatten())
             loss = (loss*(~predict_mask.flatten())).sum()
             # We don't care about additional targets here
@@ -34,7 +34,7 @@ def levenshtein(model, val_dl, swp, device='cpu', w=None, max_pred_len=256):
     n = 0
     lev_sum = 0
     for j, batch in enumerate(tqdm(val_dl)):
-        imgs_tensor, lbls_tensor, lbls_len, additional_target = batch
+        imgs_tensor, lbls_tensor, lbls_len = batch
         lbls_tensor = lbls_tensor[:,:lbls_len.max()]
         imgs_tensor, lbls_tensor = imgs_tensor.to(device), lbls_tensor.to(device)
 

@@ -70,8 +70,8 @@ if __name__ == '__main__':
             print(val_score)
         else:
             m = BeamSearcher(models, weights, tfmss, bpe_num, bw)
-        # lev_score = levenshtein(m, val_dl, swp, device, w)
-        # print(lev_score)
-        # w.write(f',,,,{bw},{lev_score}\n')
+        lev_score = levenshtein(m, val_dl, swp, device, w)
+        print(lev_score)
+        w.write(f',,,,{bw},{lev_score}\n')
     w.close()
 

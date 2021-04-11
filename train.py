@@ -25,17 +25,16 @@ if __name__ == '__main__':
     #
     start_epoch_num = 0
     #
-    img_size = 160
+    img_size = 384
     bpe_num = 4096
     max_len = 256
-    lr = 3e-4
+    lr = 2.5e-4
     bs = 64
-    BS = None
-    epochs_num = 96
+    epochs_num = 200
     # model
-    N, n, ff, first_k, first_s, last_s = 32, 64, 64, 3,2,1
-    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 256, 8, 1024, 6
-    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 256, 8, 1024, 6
+    N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
+    enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers = 1024, 32, 1024*4, 6
+    dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers = 1024, 32, 1024*4, 6
     #
     div_factor = lr / 3e-7
     pct_start = 1 / epochs_num
@@ -44,9 +43,6 @@ if __name__ == '__main__':
     max_norm = 1.0
     #
     weight_decay = 0.
-    #
-    add_prop = 0.0#1
-    add_prop_ls = 0.01  # LabelSmoothing
     # dropout
     dropout_ph = 0.12
     dropout_dec_emb = 0.1
@@ -105,7 +101,6 @@ if __name__ == '__main__':
     # Train params
     total_steps = epochs_num*len(trn_dl)
     loss_fn = nn.CrossEntropyLoss(reduction='none')
-    loss_add_fn = LabelSmoothingLoss(smoothing=add_prop_ls)
     optimizer = optim.Adam(model.parameters(),weight_decay=weight_decay)
     lr_sched = lr_scheduler.OneCycleLR(optimizer,lr,total_steps,
                                        div_factor=div_factor,pct_start=pct_start,final_div_factor=final_div_factor)
@@ -119,10 +114,9 @@ if __name__ == '__main__':
     for epoch_num in range(start_epoch_num,epochs_num):
         model.train()
         for i, batch in enumerate(tqdm(trn_dl)):
-            imgs_tensor, lbls_tensor, lbls_len, additional_target = batch
+            imgs_tensor, lbls_tensor, lbls_len = batch
             lbls_tensor = lbls_tensor[:,:lbls_len.max()]
             imgs_tensor, lbls_tensor = imgs_tensor.to(device), lbls_tensor.to(device)
-            additional_target = additional_target.to(device)
 
             history_tensor = lbls_tensor[:, :-1]
             predict_tensor = lbls_tensor[:, 1:]
@@ -132,21 +126,16 @@ if __name__ == '__main__':
             if epoch_num == 0:
                 dropout_p = dropout_ph * i/len(trn_dl)
                 dropout_h = dropout_ph - dropout_p
-                loss_prop = (1-add_prop) * i/len(trn_dl) if add_prop>0.0 else (1-add_prop)
             else:
                 dropout_h = dropout_ph * ((epoch_num-1)*len(trn_dl) + i)/((epochs_num-1)*len(trn_dl))
                 dropout_p = dropout_ph - dropout_h
-                loss_prop = (1-add_prop)
             # forward
             with torch.cuda.amp.autocast(enabled=True):
-                dec_out, add_out = model(imgs_tensor, history_tensor, dropout_p=dropout_p, dropout_h=dropout_h)
+                dec_out = model(imgs_tensor, history_tensor, dropout_p=dropout_p, dropout_h=dropout_h)
                 loss = loss_fn(dec_out.flatten(0,1), predict_tensor.flatten())
                 loss = (loss*(~predict_mask.flatten())).sum()/(~predict_mask).sum()
-                # additional target
-                loss_add = loss_add_fn(add_out.flatten(0,1), additional_target.flatten())
-                loss_sum = loss * (loss_prop) + (1-loss_prop) * loss_add.mean()
 
-            scaler.scale(loss_sum).backward()
+            scaler.scale(loss).backward()
 
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
@@ -159,8 +148,7 @@ if __name__ == '__main__':
 
             # Record
             if i%100==0:
-                loss = loss.item()
-                w_trn.write(f'{i},{loss},{lr_sched.get_last_lr()[0]}\n')
+                w_trn.write(f'{i},{loss.item()},{lr_sched.get_last_lr()[0]}\n')
 
         # save model
         torch.save(model.state_dict(), f'model_weights/model_{epoch_num}.pth')

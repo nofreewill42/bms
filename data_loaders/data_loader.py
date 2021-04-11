@@ -38,25 +38,25 @@ class DS(Dataset):
         inchi_str = 'InChI=1S/' + '/'.join(row[13:])
         inchi_str = re.sub(r'/+', '/', inchi_str)
         inchi_str = inchi_str[:-1] if inchi_str.endswith('/') else inchi_str
-        # Additional Targets
-        atom_nums = np.array(row[1:13], dtype=np.int16)
-        h_present = int(row[15] != '')
-        b_plus = row[16].count('+')
-        b_minus = max(0, (row[16].count('-') - b_plus)//2)
-        t_plus = row[17].count('+')
-        t_minus = row[17].count('-')
-        m = 0 if row[18]=='' else int(row[18][1:]) + 1
-        s = 0 if row[19]=='' else int(row[19][1:]) + 1
-        i_present = int(row[20] != '')
-        ih_present = int(row[21] != '')
-        ib_plus = row[22].count('+')
-        ib_minus = max(0, (row[22].count('-') - b_plus)//2)
-        it_plus = row[23].count('+')
-        it_minus = row[23].count('-')
-        im_ = 0 if row[24]=='' else int(row[24][1:]) + 1
-        is_ = 0 if row[25]=='' else int(row[25][1:]) + 1
-        additional_target = torch.tensor([*atom_nums, h_present, b_plus, b_minus, t_plus, t_minus, m, s,
-                                          i_present, ih_present, ib_plus, ib_minus, it_plus, it_minus, im_, is_]).long()
+        # # Additional Targets
+        # atom_nums = np.array(row[1:13], dtype=np.int16)
+        # h_present = int(row[15] != '')
+        # b_plus = row[16].count('+')
+        # b_minus = max(0, (row[16].count('-') - b_plus)//2)
+        # t_plus = row[17].count('+')
+        # t_minus = row[17].count('-')
+        # m = 0 if row[18]=='' else int(row[18][1:]) + 1
+        # s = 0 if row[19]=='' else int(row[19][1:]) + 1
+        # i_present = int(row[20] != '')
+        # ih_present = int(row[21] != '')
+        # ib_plus = row[22].count('+')
+        # ib_minus = max(0, (row[22].count('-') - b_plus)//2)
+        # it_plus = row[23].count('+')
+        # it_minus = row[23].count('-')
+        # im_ = 0 if row[24]=='' else int(row[24][1:]) + 1
+        # is_ = 0 if row[25]=='' else int(row[25][1:]) + 1
+        # additional_target = torch.tensor([*atom_nums, h_present, b_plus, b_minus, t_plus, t_minus, m, s,
+        #                                   i_present, ih_present, ib_plus, ib_minus, it_plus, it_minus, im_, is_]).long()
         # "Real" data
         c1,c2,c3 = image_id[:3]
         img_path = self.imgs_path/c1/c2/c3/(image_id+'.png')
@@ -128,7 +128,7 @@ class DS(Dataset):
         bpe_len = len(bpe_ids)
         bpe_tensor = torch.zeros(self.max_len, dtype=torch.long)
         bpe_tensor[:bpe_len] = torch.tensor(bpe_ids, dtype=torch.long)
-        return img_tensor, bpe_tensor, bpe_len, additional_target
+        return img_tensor, bpe_tensor, bpe_len
 
     def get_new_sizes(self, w,h):#,W,H):
         rs = 0.08  # Changeable

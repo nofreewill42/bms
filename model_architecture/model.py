@@ -25,8 +25,6 @@ class Model(nn.Module):
         self.tta = tta
         # CNN
         self.enc_emb = CNNEmbedder(enc_d_model,N,n,ff, first_k, first_s, last_s)
-        # ADDITIONAL EMB
-        self.add_emb = nn.Embedding(32,enc_d_model)
         # ENC
         self.encoder = TransformerEncoder(
             TransformerEncoderLayer(d_model=enc_d_model, nhead=enc_nhead, dim_feedforward=enc_dim_feedforward,
@@ -72,15 +70,8 @@ class Model(nn.Module):
         src = self.enc_emb(imgs_tensor)        # b, d_model, sqrt(i), sqrt(i)
         src = src.flatten(2,3).permute(2,0,1)  # i, b, d_model
 
-        # add
-        add = self.add_emb.weight.unsqueeze(1).repeat(1,bs,1)
-        src = torch.cat([add, src], dim=0)
-
         # enc
         src = self.encoder(src, dropout_p=dropout_p, dropout_h=dropout_h)  # i, b, d_model
-
-        # add
-        add_out = self.add_classifier(src[:27]).transpose(0,1)
 
         # enc2dec
         src = self.enc2dec(src)
@@ -92,7 +83,7 @@ class Model(nn.Module):
         dec_out = self.dec_classifier(dec)     # j, b, bpe_num
         dec_out = dec_out.transpose(0,1)       # b, j, bpe_num
 
-        return dec_out, add_out
+        return dec_out
 
 
     def predict(self, imgs_tensor, max_pred_len=160):
