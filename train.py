@@ -18,14 +18,13 @@ from torch.utils.data import DataLoader
 from data_loaders.data_loader import DS, SplitterSampler
 from model_architecture.model import Model
 from valid_utils import validate, levenshtein
-from loss import LabelSmoothingLoss
 
 
 if __name__ == '__main__':
     #
     start_epoch_num = 0
     #
-    img_size = (256, 2)
+    img_size = (288, 512)
     bpe_num = 4096
     max_len = 256
     lr = 2.5e-4

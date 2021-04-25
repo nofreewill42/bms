@@ -14,7 +14,7 @@ import kornia as K
 class DS(Dataset):
     def __init__(self, imgs_path, img_size, df, swp=None, max_len=256, train=False, dropout_bpe=0.1):
         self.imgs_path = imgs_path
-        self.w_max, self.h_max = img_size[0], int(img_size[0]/img_size[1])
+        self.w_max, self.h_max = img_size[1], img_size[0]
         self.max_len = max_len
         self.train = train
         self.swp = swp
