@@ -77,14 +77,16 @@ if __name__ == '__main__':
     val_ds = DS(imgs_path, img_size, valid_df, swp, train=False)
     val_sampler = SplitterSampler(val_ds, shuffle=False)
     val_dl = DataLoader(val_ds, batch_sampler=val_sampler, pin_memory=True, num_workers=8, prefetch_factor=2)
-    val_dl.dataset.build_new_split(bs, randomize=False, drop_last=False)
+    val_dl.dataset.build_new_split(bs//2, randomize=False, drop_last=False)
 
+    def worker_init_fn(worker_id): np.random.seed(np.random.get_state()[1][0] + worker_id)
     trn_ds = DS(imgs_path, img_size, train_df, swp, max_len, train=True, dropout_bpe=dropout_bpe)
     tqdm.pandas()
     trn_sampler = torch.utils.data.WeightedRandomSampler(weights, len(train_df), replacement=True)
     trn_dl = DataLoader(trn_ds, batch_size=bs, sampler=trn_sampler,
                         drop_last=True,
-                        pin_memory=True, num_workers=8, prefetch_factor=4)
+                        pin_memory=True, num_workers=8, prefetch_factor=4,
+                        worker_init_fn=worker_init_fn)
 
     # Model
     model = Model(bpe_num, N, n, ff, first_k, first_s, last_s,

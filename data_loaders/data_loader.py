@@ -21,9 +21,6 @@ class DS(Dataset):
         self.df = df
         self.dropout_bpe = dropout_bpe
 
-        # Augment
-        self.rotate_tfms = KA.RandomAffine(5., p=1., keepdim=True)  # Changeable
-
         # Fill with with indices before each epoch
         self.batches = []
 
@@ -112,10 +109,6 @@ class DS(Dataset):
             img_tensor.clamp_(max=max(max_val, max_val+np.random.uniform(-0.1,0.1)))
             # Erase
             img_tensor = self.erase_tfms(img_tensor)
-            # Rotate
-            img_tensor = self.rotate_tfms(img_tensor)
-        else:
-            pass#img_tensor = K.Rotate(torch.tensor(0.3))(img_tensor)
         zero_tensor = torch.zeros(1, self.img_size, self.img_size)
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor
@@ -133,11 +126,13 @@ class DS(Dataset):
     def get_new_sizes(self, w,h):#,W,H):
         rs = 0.08  # Changeable
         rs = random.uniform(1-rs, 1)
-        rrm = 0.57  # Changeable
-        rrM = min(1/rrm, self.img_size/max(w*rs,h))  # max out at img_size
+        rrm = 0.87#0.67  # Changeable
+        #rrM = min(1/rrm, self.img_size/max(w*rs,h))  # max out at img_size
+        rrM = 1/rrm  # Changeable ver2
         rrm, rrM = np.log(rrm), np.log(rrM)
         rr = random.uniform(rrm, rrM)
-        rr = np.exp(rr)
+        #rr = np.exp(rr)
+        rr = min(np.exp(rr), self.img_size/max(w*rs,h))  # Changeable ver2
         w, h = (rr * w * rs, rr * h) if random.random() > 0.5 else (rr * w, rr * h * rs)
         return int(w), int(h)
 
