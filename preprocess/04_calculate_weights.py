@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     # Do the job
     print(f'Reading processed labels - {processed_labels_path}')
-    train_df = pd.read_csv(processed_labels_path)
+    train_df = pd.read_csv(processed_labels_path, low_memory=False)
     train_df.fillna('', inplace=True)
 
     print('Complexity')

@@ -14,7 +14,7 @@ import kornia as K
 class DS(Dataset):
     def __init__(self, imgs_path, img_size, df, swp=None, max_len=256, train=False, dropout_bpe=0.1):
         self.imgs_path = imgs_path
-        self.img_size = img_size
+        self.w_max, self.h_max = img_size[0], int(img_size[0]/img_size[1])
         self.max_len = max_len
         self.train = train
         self.swp = swp
@@ -84,18 +84,18 @@ class DS(Dataset):
             w,h = self.get_new_sizes(w,h)
             img_pil = img_pil.resize((w,h), resample=Image.BICUBIC)
         # Resize if needed
-        if max(w,h) > self.img_size:
-            ratio = min(self.img_size/w,self.img_size/h)
-            w,h = int(ratio*w), int(ratio*h)
+        ratio = max(w/self.w_max, h/self.h_max)
+        if ratio > 1:
+            w,h = int(w/ratio), int(h/ratio)
             img_pil = img_pil.resize((w,h), resample=Image.BICUBIC)
         # Augment
-        if self.train:
+        if False:#self.train:
             # Positioning
             rh,rw = random.random()*0.2-0.1, random.random()*0.2-0.1  # Changeable
-            dh,dw = int(self.img_size-h*(1+rh)) // 2, int(self.img_size-w*(1+rw)) // 2
-            dh,dw = min(self.img_size-h, max(0, dh)), min(self.img_size-w, max(0, dw))
+            dh,dw = int(self.h_max-h*(1+rh)) // 2, int(self.w_max-w*(1+rw)) // 2
+            dh,dw = min(self.h_max-h, max(0, dh)), min(self.w_max-w, max(0, dw))
         else:
-            dh, dw = (self.img_size - h) // 2, (self.img_size - w) // 2
+            dh, dw = (self.h_max - h) // 2, (self.w_max - w) // 2
         img_tensor = T.ToTensor()(img_pil)*-1 + 1
         # Augment
         if self.train:
@@ -109,7 +109,7 @@ class DS(Dataset):
             img_tensor.clamp_(max=max(max_val, max_val+np.random.uniform(-0.1,0.1)))
             # Erase
             img_tensor = self.erase_tfms(img_tensor)
-        zero_tensor = torch.zeros(1, self.img_size, self.img_size)
+        zero_tensor = torch.zeros(1, self.h_max, self.w_max)
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor
         img_tensor = (img_tensor - 0.0044) / 0.0327
@@ -123,17 +123,16 @@ class DS(Dataset):
         bpe_tensor[:bpe_len] = torch.tensor(bpe_ids, dtype=torch.long)
         return img_tensor, bpe_tensor, bpe_len
 
-    def get_new_sizes(self, w,h):#,W,H):
-        rs = 0.08  # Changeable
+    def get_new_sizes(self, w,h):
+        rs = 0.02#0.05  # Changeable
         rs = random.uniform(1-rs, 1)
-        rrm = 0.87#0.67  # Changeable
-        #rrM = min(1/rrm, self.img_size/max(w*rs,h))  # max out at img_size
+        rrm = 0.92#0.87  # Changeable
         rrM = 1/rrm  # Changeable ver2
-        rrm, rrM = np.log(rrm), np.log(rrM)
-        rr = random.uniform(rrm, rrM)
-        #rr = np.exp(rr)
-        rr = min(np.exp(rr), self.img_size/max(w*rs,h))  # Changeable ver2
+        rr = np.exp(random.uniform(np.log(rrm), np.log(rrM)))
         w, h = (rr * w * rs, rr * h) if random.random() > 0.5 else (rr * w, rr * h * rs)
+        ratio = max(w/self.w_max, h/self.h_max)
+        if ratio>1:
+            w, h = int(w/ratio), int(h/ratio)
         return int(w), int(h)
 
     def erase_tfms(self, img_tensor, n=4, r=0.04):  # Changeable

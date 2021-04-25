@@ -9,17 +9,18 @@ ds_path_str = Path('data_path.txt').read_text()
 ds_path = Path(ds_path_str)
 PATH = ds_path/'images'                  # input
 DEST = ds_path/'images'/'resized'        # output (DEST/size/{train,test})
-szs = (768, )                   # size(s)
+szs = ((256, 2), )                   # size(s)
 resample_type = Image.BICUBIC   # type of resampling
 
 def resize_img(im, fn, sz):
-    new_fn = DEST/str(sz)/fn.relative_to(PATH)
+    new_fn = DEST/f'{sz[0]}_{sz[1]}'/fn.relative_to(PATH)
     new_fn.parent.mkdir(parents=True, exist_ok=True)
-    if max(im.size) > sz:
+    w, h = im.size
+    wM, hM = sz[0], int(sz[0]/sz[1])
+    ratio = max(w/wM, h/hM)
+    if ratio>1:
         if new_fn.exists():
             return
-        w,h = im.size
-        ratio = max(h/sz,w/sz)
         im = im.resize((int(w/ratio), int(h/ratio)), resample=resample_type)
         im.save(new_fn)
     else:

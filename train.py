@@ -25,7 +25,7 @@ if __name__ == '__main__':
     #
     start_epoch_num = 0
     #
-    img_size = 384
+    img_size = (256, 2)
     bpe_num = 4096
     max_len = 256
     lr = 2.5e-4
@@ -53,8 +53,8 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
 
     # Dataset
-    ds_path = Path('/media/nofreewill/Datasets_nvme/kaggle/bms-data/').absolute()
-    imgs_path = ds_path/'images/resized'/str(img_size)/'train'
+    ds_path = Path('/home/nofreewill/Documents/kaggle/bms/bms-data/').absolute()
+    imgs_path = ds_path/'images/resized'/f'{img_size[0]}_{img_size[1]}'/'train'
     imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/train'
     df = pd.read_csv(ds_path/'train_labels_processed.csv', low_memory=False)
     keep_ids = (df.C > 0) & df.ib.isna()
