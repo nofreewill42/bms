@@ -19,14 +19,12 @@ class Layer(nn.Module):
         self.bnl2 = BNLayer(f_out, f_out, 3, 1, 1, r=False)
         self.bnl3 = BNLayer(f_out,    ff, 3, 1, 1)
         self.bnl4 = BNLayer(ff   , f_out, 3, 1, 1, r=False)
-        self.s = s
         self.r = r
         self.pool = BNLayer(f_in,f_in,3,1,1) if s==1 else nn.MaxPool2d(2,s,0)
     def forward(self, x_in):
         x = self.bnl1(x_in)
         x = self.bnl2(x) + self.bnl4(self.bnl3(x))
-        x_pool = self.pool(x_in)
-        x = torch.cat((x, x_pool), dim=1) if self.r else x
+        x = torch.cat((x, self.pool(x_in)), dim=1) if self.r else x
         return x
 class CNNEmbedder(nn.Module):
     def __init__(self, d_model, N, n, ff, first_k, first_s, last_s):
