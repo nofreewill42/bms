@@ -2,10 +2,9 @@ import torch
 
 
 class BeamSearcher:
-    def __init__(self, models, weights, tfmss, bpe_num, beam_width=4, max_len=160):
+    def __init__(self, models, weights, bpe_num, beam_width=4, max_len=160):
         self.models = models
         self.weights = weights
-        self.tfmss = tfmss
         self.bw = beam_width
         self.max_len = max_len
         self.bpe_num = bpe_num
@@ -17,9 +16,9 @@ class BeamSearcher:
         for model in self.models:
             model.train()
 
-    def predict(self, imgs_tensor, max_pred_len=256):
-        bs = len(imgs_tensor)
-        device = imgs_tensor.device
+    def predict(self, imgs_tensors, max_pred_len=256):
+        bs = len(imgs_tensors[0])
+        device = imgs_tensors[0].device
         bw = self.bw
         max_len = max_pred_len
         bpe_num = self.bpe_num
@@ -27,8 +26,8 @@ class BeamSearcher:
 
         # Initialize
 
-        enc_outs = [model.encoder_output(self.tfmss[i](imgs_tensor)) for i, model in enumerate(self.models)]
-        #enc_outs = [model.encoder_output(imgs_tensor) for i, model in enumerate(self.models)]
+        #enc_outs = [model.encoder_output(self.tfmss[i](imgs_tensor)) for i, model in enumerate(self.models)]
+        enc_outs = [model.encoder_output(imgs_tensors[i]) for i, model in enumerate(self.models)]
 
         start_tokens = torch.ones(bs, 1, device=device, dtype=torch.long)
         caches = [None]*len(self.models)
@@ -52,7 +51,11 @@ class BeamSearcher:
         caches = [caches[i].unsqueeze(3).repeat(1,1,1,bw,1)\
                       .reshape(self.models[i].dec_num_layers,-1,bs*bw,self.models[i].dec_d_model)
                   for i in range(len(self.models))]
-        decoded_tokens = torch.cat([torch.ones(bs * bw, 1).long().to('cuda:0'), topk_idxs.reshape(bs * bw, 1)], dim=1)
+        decoded_tokens = torch.cat([torch.ones(bs * bw, 1).long().to(device), topk_idxs.reshape(bs * bw, 1)], dim=1)
+
+        # helpers
+        index_helper = torch.arange(bs, device=device)
+        shift_idxs = (index_helper * bw).reshape(bs, 1).repeat(1, bw).reshape(bs * bw)
 
         # Loop
         while True:
@@ -75,10 +78,8 @@ class BeamSearcher:
             # step
             topk_probs, topk_idxs = route_bpe_probs.reshape(bs, bw * bpe_num).topk(bw, dim=1)
 
-            index_helper = torch.arange(bs, device=device)
-            shift_idxs = (index_helper * bw).reshape(bs, 1).repeat(1, bw).reshape(bs * bw)
             is_eos, eos_idxs = ((topk_idxs%bpe_num)==eos_id).max(dim=1)
-            is_better = (topk_probs[index_helper,eos_idxs] > beam_probs) * is_eos
+            is_better = (topk_probs[index_helper,eos_idxs] > beam_probs) * is_eos * (eos_idxs<1)#<bw : worse?
             beam_probs[is_better] = topk_probs[is_better,eos_idxs[is_better]]
             beam_lens[is_better] = route_len
             beam_ids[is_better,:route_len] = decoded_tokens[index_helper*bw+topk_idxs[index_helper,eos_idxs]//bpe_num][is_better]

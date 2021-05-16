@@ -9,7 +9,7 @@ class TestDS(Dataset):
     def __init__(self, imgs_path, img_stems, img_size):
         self.imgs_path = imgs_path
         self.img_stems = img_stems
-        self.img_size = img_size
+        self.w_max, self.h_max = img_size[1], img_size[0]
 
     def __len__(self):
         return len(self.img_stems)
@@ -24,13 +24,13 @@ class TestDS(Dataset):
         img_pil = img_pil if w >= h else img_pil.rotate(90, expand=True)  # TODO: CNN decides
         w, h = img_pil.size
         # Resize if needed
-        if max(w,h) > self.img_size:
-            ratio = min(self.img_size/w,self.img_size/h)
-            w,h = int(ratio*w), int(ratio*h)
+        ratio = max(w/self.w_max, h/self.h_max)
+        if ratio > 1:
+            w,h = int(w/ratio), int(h/ratio)
             img_pil = img_pil.resize((w,h), resample=Image.BICUBIC)
-        dh, dw = (self.img_size - h) // 2, (self.img_size - w) // 2
+        dh, dw = (self.h_max - h) // 2, (self.w_max - w) // 2
         img_tensor = T.ToTensor()(img_pil)*-1 + 1
-        zero_tensor = torch.zeros(1, self.img_size, self.img_size)
+        zero_tensor = torch.zeros(1, self.h_max, self.w_max)
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor
         img_tensor = (img_tensor - 0.0044) / 0.0327

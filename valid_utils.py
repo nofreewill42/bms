@@ -3,12 +3,12 @@ import edlib
 from tqdm import tqdm
 
 
-def validate(model, val_dl, device='cpu'):
+def validate(model, val_dls, device='cpu'):
     loss_fn = torch.nn.CrossEntropyLoss(reduction='none')  # even if trained with Label Smoothing
     model.eval()
     N = 0
     val_loss = 0
-    for j, batch in enumerate(tqdm(val_dl)):
+    for j, batch in enumerate(tqdm(val_dls[0])):
         imgs_tensor, lbls_tensor, lbls_len = batch
         N += (lbls_len-1).sum().item()
         lbls_tensor = lbls_tensor[:, :lbls_len.max()]
@@ -29,19 +29,21 @@ def validate(model, val_dl, device='cpu'):
 
     return val_loss/N
 
-def levenshtein(model, val_dl, swp, device='cpu', w=None, max_pred_len=256):
+def levenshtein(model, val_dls, swp, device='cpu', w=None, max_pred_len=256):
     model.eval()
     n = 0
     lev_sum = 0
-    for j, batch in enumerate(tqdm(val_dl)):
-        imgs_tensor, lbls_tensor, lbls_len = batch
+    for j, batch in enumerate(tqdm(zip(*val_dls))):
+        imgs_tensor1, lbls_tensor, lbls_len = batch[0]
+        #imgs_tensor2, lbls_tensor, lbls_len = batch[1]
         lbls_tensor = lbls_tensor[:,:lbls_len.max()]
-        imgs_tensor, lbls_tensor = imgs_tensor.to(device), lbls_tensor.to(device)
+        #imgs_tensor1, imgs_tensor2, lbls_tensor = imgs_tensor1.to(device), imgs_tensor2.to(device), lbls_tensor.to(device)
+        imgs_tensor1, lbls_tensor = imgs_tensor1.to(device), lbls_tensor.to(device)
 
         with torch.no_grad():
-            lbl_ids, lens = model.predict(imgs_tensor, max_pred_len)
+            lbl_ids, lens = model.predict([imgs_tensor1,], max_pred_len)
             lbl_ids = torch.stack(lbl_ids).T if not isinstance(lbl_ids, torch.Tensor) else lbl_ids
-        if (lens==val_dl.dataset.max_len).sum()==len(lens):
+        if (lens==val_dls[0].dataset.max_len).sum()==len(lens):
             return float('inf')  # it is repeating itself in hole batch, most likely would on all data..
 
         for i in range(len(lbl_ids)):
@@ -54,7 +56,7 @@ def levenshtein(model, val_dl, swp, device='cpu', w=None, max_pred_len=256):
             n += 1
 
             if w is not None:
-                w.write(f'"{pred_text}","{lbl_text}","{val_dl.dataset.df.iloc[n-1][0]}",{lev_dist}\n')
+                w.write(f'"{pred_text}","{lbl_text}","{val_dls[0].dataset.df.iloc[n-1][0]}",{lev_dist}\n')
 
     model.train()
     return lev_sum/n

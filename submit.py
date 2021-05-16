@@ -15,7 +15,7 @@ from model_architecture.beam_search import BeamSearcher
 
 if __name__ == '__main__':
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    img_size = 384#192
+    img_size = (288,512)
     bpe_num = 4096#2**15
     max_len = 256
     bs = 64
@@ -23,8 +23,7 @@ if __name__ == '__main__':
 
     ds_path = Path("/media/nofreewill/Datasets_nvme/kaggle/bms-data/")
 
-    imgs_path = ds_path/'resized'/str(img_size)/'test'
-    imgs_path = imgs_path if imgs_path.exists() else ds_path / 'images/test'
+    imgs_path = ds_path / 'images/test'
     test_stems = pickle.load((ds_path/'samples/test_img_stems_sorted.pkl').open('rb'))[::-1]
 
     sp.SentencePieceProcessor()
@@ -34,9 +33,6 @@ if __name__ == '__main__':
     test_ds = TestDS(imgs_path, test_stems, img_size)
     test_dl = DataLoader(test_ds, batch_size=bs, pin_memory=True, num_workers=4)
 
-    # eval
-    tfms1 = K.Rotate(torch.tensor(0.3).to(device))
-    tfms2 = K.Rotate(torch.tensor(-0.27).to(device))
     # model
     N, n, ff, first_k, first_s, last_s = 32, 128, 128, 3,2,1
     enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers =  512, 8, 2048, 6
@@ -45,17 +41,16 @@ if __name__ == '__main__':
                   enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                   dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                   max_trn_len=max_len, tta=None).to(device)#114, tta=tfms2).to(device)
-    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/done/model_23_C.pth', map_location=device))
+    model.load_state_dict(torch.load(f'/media/nofreewill/Datasets_nvme/kaggle/bms-code/model_weights/done/model_288_512.pth', map_location=device))
     model.eval()
 
-    models = [model]*2
-    weights = [1.]*2
-    tfmss = [tfms1, tfms2]
-    bw = 2
+    models = [model]*1
+    weights = [1.]*1
+    bw = 0
 
     from valid_utils import levenshtein, validate
     w = (ds_path/'submission.csv').open('w')
-    m = model if (bw == 0) else BeamSearcher(models, weights, tfmss, bpe_num, bw)
+    m = model if (bw == 0) else BeamSearcher(models, weights, bpe_num, bw)
 
     for j, batch in enumerate(tqdm(test_dl)):
         imgs_tensor, img_stems = batch

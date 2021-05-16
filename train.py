@@ -80,7 +80,6 @@ if __name__ == '__main__':
 
     def worker_init_fn(worker_id): np.random.seed(np.random.get_state()[1][0] + worker_id)
     trn_ds = DS(imgs_path, img_size, train_df, swp, max_len, train=True, dropout_bpe=dropout_bpe)
-    tqdm.pandas()
     trn_sampler = torch.utils.data.WeightedRandomSampler(weights, len(train_df), replacement=True)
     trn_dl = DataLoader(trn_ds, batch_size=bs, sampler=trn_sampler,
                         drop_last=True,
@@ -114,6 +113,17 @@ if __name__ == '__main__':
     # Train
     for epoch_num in range(start_epoch_num,epochs_num):
         model.train()
+        
+        # 
+        def worker_init_fn(worker_id): np.random.seed(np.random.get_state()[1][0] + worker_id)
+        trn_ds = DS(imgs_path, img_size, train_df, swp, max_len, train=True, dropout_bpe=dropout_bpe)
+        trn_sampler = torch.utils.data.WeightedRandomSampler(weights, len(train_df), replacement=True)
+        trn_dl = DataLoader(trn_ds, batch_size=bs, sampler=trn_sampler,
+                            drop_last=True,
+                            pin_memory=True, num_workers=8, prefetch_factor=4,
+                            worker_init_fn=worker_init_fn)
+        # 
+        
         for i, batch in enumerate(tqdm(trn_dl)):
             imgs_tensor, lbls_tensor, lbls_len = batch
             lbls_tensor = lbls_tensor[:,:lbls_len.max()]
@@ -157,12 +167,12 @@ if __name__ == '__main__':
         w_val.write(f'{epoch_num}')
 
         print('validate')
-        val_loss = validate(model, val_dl, device)
+        val_loss = validate(model, [val_dl], device)
         w_val.write(f',{val_loss}')
-        if epoch_num%5==0 or epoch_num>=epochs_num-5:
-            print('levenshtein')
-            val_lev = levenshtein(model, val_dl, swp, device)
-            w_val.write(f',{val_lev}')
+        #if epoch_num%5==0 or epoch_num>=epochs_num-5:
+        #    print('levenshtein')
+        #    val_lev = levenshtein(model, val_dl, swp, device)
+        #    w_val.write(f',{val_lev}')
 
         w_val.write('\n')
 
