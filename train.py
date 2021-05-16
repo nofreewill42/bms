@@ -144,22 +144,23 @@ if __name__ == '__main__':
             with torch.cuda.amp.autocast(enabled=True):
                 dec_out = model(imgs_tensor, history_tensor, dropout_p=dropout_p, dropout_h=dropout_h)
                 loss = loss_fn(dec_out.flatten(0,1), predict_tensor.flatten())
-                loss = (loss*(~predict_mask.flatten())).sum()/(~predict_mask).sum()
+                loss = (loss*(~predict_mask.flatten())).sum()/(~predict_mask).sum()/8.
 
             scaler.scale(loss).backward()
+            
+            if i%8==7:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
 
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
-
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
 
             lr_sched.step()
 
             # Record
             if i%100==0:
-                w_trn.write(f'{i},{loss.item()},{lr_sched.get_last_lr()[0]}\n')
+                w_trn.write(f'{i},{loss.item()*8.},{lr_sched.get_last_lr()[0]}\n')
 
         # save model
         torch.save(model.state_dict(), f'model_weights/model_{epoch_num}.pth')

@@ -18,11 +18,10 @@ class Model(nn.Module):
                  enc_d_model, enc_nhead, enc_dim_feedforward, enc_num_layers,
                  dec_d_model, dec_nhead, dec_dim_feedforward, dec_num_layers,
                  dropout_ff = 0.1, dropout_dec_emb = 0.1,
-                 max_trn_len=128, tta=None):
+                 max_trn_len=128):
         super().__init__()
         self.dec_d_model = dec_d_model
         self.dec_num_layers= dec_num_layers
-        self.tta = tta
         # CNN
         self.enc_emb = CNNEmbedder(enc_d_model,N,n,ff, first_k, first_s, last_s)
         # ENC
@@ -63,9 +62,6 @@ class Model(nn.Module):
 
     def forward(self, imgs_tensor, tgt_ids, dropout_p=0., dropout_h=0.):
         bs = len(imgs_tensor)
-        # TTA - for validation
-        with torch.cuda.amp.autocast(enabled=False):
-            imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
         # cnn
         src = self.enc_emb(imgs_tensor)        # b, d_model, sqrt(i), sqrt(i)
         src = src.flatten(2,3).permute(2,0,1)  # i, b, d_model
@@ -126,7 +122,6 @@ class Model(nn.Module):
         return generated_ids, lens
 
     def encoder_output(self, imgs_tensor):
-        imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
         src = self.enc_emb(imgs_tensor)
         src = src.flatten(2,3).permute(2,0,1)
         src = self.encoder(src)

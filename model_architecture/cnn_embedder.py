@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 class BNLayer(nn.Module):
     def __init__(self, f_in, f_out, k, s, p=0, r=True, groups=1):
@@ -10,7 +11,7 @@ class BNLayer(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
-        x = nn.ReLU()(x) if self.r else x
+        x = F.relu(x) if self.r else x
         return x
 class Layer(nn.Module):
     def __init__(self, f_in, f_out, ff, s=2, r=True):

@@ -34,14 +34,13 @@ def levenshtein(model, val_dls, swp, device='cpu', w=None, max_pred_len=256):
     n = 0
     lev_sum = 0
     for j, batch in enumerate(tqdm(zip(*val_dls))):
-        imgs_tensor1, lbls_tensor, lbls_len = batch[0]
-        #imgs_tensor2, lbls_tensor, lbls_len = batch[1]
+        _, lbls_tensor, lbls_len = batch[0]
+        imgs_tensors = [b[0].to(device) for b in batch]
         lbls_tensor = lbls_tensor[:,:lbls_len.max()]
-        #imgs_tensor1, imgs_tensor2, lbls_tensor = imgs_tensor1.to(device), imgs_tensor2.to(device), lbls_tensor.to(device)
-        imgs_tensor1, lbls_tensor = imgs_tensor1.to(device), lbls_tensor.to(device)
+        lbls_tensor = lbls_tensor.to(device)
 
         with torch.no_grad():
-            lbl_ids, lens = model.predict([imgs_tensor1,], max_pred_len)
+            lbl_ids, lens = model.predict(imgs_tensors, max_pred_len)
             lbl_ids = torch.stack(lbl_ids).T if not isinstance(lbl_ids, torch.Tensor) else lbl_ids
         if (lens==val_dls[0].dataset.max_len).sum()==len(lens):
             return float('inf')  # it is repeating itself in hole batch, most likely would on all data..
