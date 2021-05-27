@@ -23,6 +23,7 @@ class BeamSearcher:
         max_len = max_pred_len
         bpe_num = self.bpe_num
         eos_id = 2
+        pow = 8.0
 
         # Initialize
 
@@ -42,7 +43,7 @@ class BeamSearcher:
 
         bpe_probses, caches = list(zip(*[self.models[i].decoder_output(enc_outs[i], caches[i], start_tokens)
                                          for i in range(len(self.models))]))
-        bpe_probs = sum([self.weights[i] * ratios_tensors[i].unsqueeze(1) * bpe_probses[i] for i in range(len(self.models))])
+        bpe_probs = sum([self.weights[i] * ratios_tensors[i,::bw].unsqueeze(1).pow(pow) * bpe_probses[i] for i in range(len(self.models))])
         topk_probs, topk_idxs = bpe_probs.topk(bw, dim=1)
         route_probs = topk_probs.reshape(bs * bw, 1)
 
@@ -65,7 +66,7 @@ class BeamSearcher:
 
             bpe_probses, caches = list(zip(*[self.models[i].decoder_output(enc_outs[i], caches[i], decoded_tokens)
                                              for i in range(len(self.models))]))
-            bpe_probs = sum([self.weights[i] * bpe_probses[i] for i in range(len(self.models))])
+            bpe_probs = sum([self.weights[i] * ratios_tensors[i].unsqueeze(1).pow(pow) * bpe_probses[i] for i in range(len(self.models))])
             route_bpe_probs = route_probs + bpe_probs
 
             # check dones
