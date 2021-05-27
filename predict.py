@@ -48,9 +48,10 @@ if __name__ == '__main__':
     ds_path = Path("/home/nofreewill/Documents/kaggle/bms/bms-data/")
     imgs_path = ds_path / 'images' / ('train' if type=='valid' else 'test')
     test_stems = pickle.load((ds_path/'samples'/f'{type}_img_stems_sorted.pkl').open('rb'))[::-1]
-    same_df = pd.read_csv(ds_path/'predictions'/type/'same_norm.csv')
-    same_stems = set(same_df.iloc[:,0])
-    test_stems = [stem for stem in test_stems if stem not in same_stems]
+    if (ds_path/'predictions'/type/'same_norm.csv').exists():
+        same_df = pd.read_csv(ds_path/'predictions'/type/'same_norm.csv')
+        same_stems = set(same_df.iloc[:,0])
+        test_stems = [stem for stem in test_stems if stem not in same_stems]
     print(len(test_stems)//bs)
 
     sp.SentencePieceProcessor()
@@ -64,7 +65,7 @@ if __name__ == '__main__':
         print(name, img_size)
 
         if bw == 0:
-            w_path = (ds_path/'predictions'/type/f'submission_{name}.csv')
+            w_path = (ds_path/'predictions'/type/f'raw/submission_{name}.csv')
             if w_path.exists():
                 print('\tSKIP')
                 continue
@@ -100,7 +101,7 @@ if __name__ == '__main__':
                 imgs_tensor = imgs_tensor.to(device)
 
                 with torch.no_grad():
-                    lbl_ids, lens = m.predict(imgs_tensor)
+                    lbl_ids, lens = m.predict([imgs_tensor])
                     lbl_ids = torch.stack(lbl_ids).T if not isinstance(lbl_ids, torch.Tensor) else lbl_ids
 
                 for i in range(len(lbl_ids)):
@@ -113,12 +114,14 @@ if __name__ == '__main__':
 
     else:
         w = (ds_path/'predictions'/type/f'submission_{bw}.csv').open('w', buffering=1)
+        w.write('image_id,InChI\n')
         m = BeamSearcher(models, weights, bpe_num, bw)
 
         for j, batch in enumerate(tqdm(zip(*test_dls))):
             imgs_tensors = [b[0].to(device) for b in batch]
             img_stems = batch[0][1]
             ratios_tensors = torch.stack([b[2] for b in batch]).float().to(device)
+            ratios_tensors = ratios_tensors.reshape(-1,1).repeat(1,bw).reshape(-1,bs*bw)
 
             with torch.no_grad():
                 lbl_ids, lens = m.predict(imgs_tensors, ratios_tensors, max_pred_len=256)
