@@ -16,7 +16,7 @@ class BeamSearcher:
         for model in self.models:
             model.train()
 
-    def predict(self, imgs_tensors, max_pred_len=256):
+    def predict(self, imgs_tensors, ratios_tensors, max_pred_len=256):
         bs = len(imgs_tensors[0])
         device = imgs_tensors[0].device
         bw = self.bw
@@ -42,7 +42,7 @@ class BeamSearcher:
 
         bpe_probses, caches = list(zip(*[self.models[i].decoder_output(enc_outs[i], caches[i], start_tokens)
                                          for i in range(len(self.models))]))
-        bpe_probs = sum([self.weights[i] * bpe_probses[i] for i in range(len(self.models))])
+        bpe_probs = sum([self.weights[i] * ratios_tensors[i].unsqueeze(1) * bpe_probses[i] for i in range(len(self.models))])
         topk_probs, topk_idxs = bpe_probs.topk(bw, dim=1)
         route_probs = topk_probs.reshape(bs * bw, 1)
 

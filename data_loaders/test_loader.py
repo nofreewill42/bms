@@ -35,4 +35,4 @@ class TestDS(Dataset):
         zero_tensor[:, dh:dh + h, dw:dw + w] = img_tensor
         img_tensor = zero_tensor
         img_tensor = (img_tensor - 0.0044) / 0.0327
-        return img_tensor, img_stem
+        return img_tensor, img_stem, min(1, 1/ratio)

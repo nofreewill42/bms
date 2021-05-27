@@ -83,13 +83,13 @@ if __name__ == '__main__':
 
     if bw == 0:
         for k in range(len(models)):
-            w = ws[k].open('w')
+            w = ws[k].open('w', buffering=1)
             m = models[k]
             test_dl = test_dls[k]
             w.write('image_id,InChI\n')
 
             for j, batch in enumerate(tqdm(test_dl)):
-                imgs_tensor, img_stems = batch
+                imgs_tensor, img_stems, _ = batch
                 imgs_tensor = imgs_tensor.to(device)
 
                 with torch.no_grad():
@@ -105,15 +105,16 @@ if __name__ == '__main__':
             w.close()
 
     else:
-        w = (ds_path/'predictions'/type/f'submission_{bw}.csv').open('w')
+        w = (ds_path/'predictions'/type/f'submission_{bw}.csv').open('w', buffering=1)
         m = BeamSearcher(models, weights, bpe_num, bw)
 
         for j, batch in enumerate(tqdm(zip(*test_dls))):
             imgs_tensors = [b[0].to(device) for b in batch]
             img_stems = batch[0][1]
+            ratios_tensors = torch.stack([b[2] for b in batch]).float().to(device)
 
             with torch.no_grad():
-                lbl_ids, lens = m.predict(imgs_tensors, max_pred_len=256)
+                lbl_ids, lens = m.predict(imgs_tensors, ratios_tensors, max_pred_len=256)
                 lbl_ids = torch.stack(lbl_ids).T if not isinstance(lbl_ids, torch.Tensor) else lbl_ids
             if (lens == test_dls[0].dataset.max_len).sum() == len(lens):
                 print('ERR')
