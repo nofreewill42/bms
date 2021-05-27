@@ -6,10 +6,11 @@ from torchvision import transforms as T
 
 
 class TestDS(Dataset):
-    def __init__(self, imgs_path, img_stems, img_size):
+    def __init__(self, imgs_path, img_stems, img_size, max_len=256):
         self.imgs_path = imgs_path
         self.img_stems = img_stems
         self.w_max, self.h_max = img_size[1], img_size[0]
+        self.max_len = max_len
 
     def __len__(self):
         return len(self.img_stems)

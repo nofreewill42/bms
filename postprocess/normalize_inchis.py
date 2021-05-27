@@ -16,26 +16,28 @@ def normalize_inchi(inchi):
 # Segfault in rdkit taken care of, run it with:
 # while [ 1 ]; do python normalize_inchis.py && break; done
 if __name__=='__main__':
-    ds_path = Path('/media/nofreewill/Datasets_nvme/kaggle/bms-data/')
-    submission_path = ds_path/'submission.csv'
-    norm_path = submission_path.with_name(submission_path.stem+'_norm.csv')
-    
-    N = norm_path.read_text().count('\n') if norm_path.exists() else 0
-    print(N)
+    ds_path = Path('/home/nofreewill/Documents/kaggle/bms/bms-data/')
+    submissions_path = ds_path/'predictions/valid/raw'
+    for p in submissions_path.iterdir():
+        print(p.name)
+        norm_path = ds_path/'predictions/valid/norm'/p.name
 
-    r = submission_path.open('r')
-    w = norm_path.open('a', buffering=1)
+        N = norm_path.read_text().count('\n') if norm_path.exists() else 0
+        print(N)
 
-    for _ in range(N):
-        r.readline()
-    line = r.readline()  # this line is the header or is where it died last time
-    w.write(line)
+        r = p.open('r')
+        w = norm_path.open('a', buffering=1)
 
-    for line in tqdm(r):
-        image_id = line.split(',')[0]
-        inchi = ','.join(line[:-1].split(',')[1:]).replace('"','')
-        inchi_norm = normalize_inchi(inchi)
-        w.write(f'{image_id},"{inchi_norm}"\n')
+        for _ in range(N):
+            r.readline()
+        line = r.readline()  # this line is the header or is where it died last time
+        w.write(line)
 
-    r.close()
-    w.close()
+        for line in tqdm(r):
+            image_id = line.split(',')[0]
+            inchi = ','.join(line[:-1].split(',')[1:]).replace('"','')
+            inchi_norm = normalize_inchi(inchi)
+            w.write(f'{image_id},"{inchi_norm}"\n')
+
+        r.close()
+        w.close()

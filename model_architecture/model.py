@@ -86,9 +86,6 @@ class Model(nn.Module):
         device = imgs_tensor.device
         bs = len(imgs_tensor)
 
-        with torch.cuda.amp.autocast(enabled=False):
-            imgs_tensor = imgs_tensor if self.tta is None else self.tta(imgs_tensor)
-
         src = self.enc_emb(imgs_tensor)
         src = src.flatten(2,3).permute(2,0,1)
 

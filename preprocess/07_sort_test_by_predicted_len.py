@@ -9,9 +9,10 @@ if __name__ == '__main__':
     ds_path_str = Path('data_path.txt').read_text()
     ds_path = Path(ds_path_str)
 
-    submission_path = ds_path/'submissions'/'submission_192_12.csv'             # input
-    test_img_stems_path = ds_path/'samples'/'test_img_stems.pkl'                # input
-    test_img_stems_sorted_path = ds_path/'samples'/'test_img_stems_sorted.pkl'  # output
+    submission_path = ds_path/'samples/valid_labels.csv'#'submissions'/'submission_192_12.csv'  # input
+    type = 'valid'
+    test_img_stems_path = ds_path/'samples'/f'{type}_img_stems.pkl'                # input
+    test_img_stems_sorted_path = ds_path/'samples'/f'{type}_img_stems_sorted.pkl'  # output
 
     bpe_num = 4096
     subwords_path = ds_path/'subwords'/f'bpe_{bpe_num}.model'

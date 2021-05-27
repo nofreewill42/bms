@@ -141,19 +141,21 @@ if __name__ == '__main__':
                 dropout_h = dropout_ph * ((epoch_num-1)*len(trn_dl) + i)/((epochs_num-1)*len(trn_dl))
                 dropout_p = dropout_ph - dropout_h
             # forward
-            with torch.cuda.amp.autocast(enabled=True):
+            with torch.cuda.amp.autocast(enabled=False):
                 dec_out = model(imgs_tensor, history_tensor, dropout_p=dropout_p, dropout_h=dropout_h)
                 loss = loss_fn(dec_out.flatten(0,1), predict_tensor.flatten())
                 loss = (loss*(~predict_mask.flatten())).sum()/(~predict_mask).sum()/8.
 
-            scaler.scale(loss).backward()
+            #scaler.scale(loss).backward()
+            loss.backward()
             
             if i%8==7:
-                scaler.unscale_(optimizer)
+                #scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
 
-                scaler.step(optimizer)
-                scaler.update()
+                #scaler.step(optimizer)
+                #scaler.update()
+                optimizer.step()
                 optimizer.zero_grad()
 
             lr_sched.step()
